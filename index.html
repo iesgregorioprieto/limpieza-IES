@@ -584,7 +584,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
 
     <div class="atab-content" id="tab-rotacion">
-      <p style="font-size:12px;color:var(--gray);margin-bottom:12px">Vista completa de la rotación del curso. Solo visible desde administración.</p>
+      <p style="font-size:12px;color:var(--gray);margin-bottom:12px">Vista completa de la rotación del curso. Solo visible desde administración. Toca el sector de cualquier trabajador para cambiarlo a mano.</p>
       <div id="rot-switch"></div>
       <button class="btn btn-blue" onclick="regenerate()" style="font-size:14px;margin-bottom:14px"><i class="ti ti-wand"></i> Regenerar rotación aleatoria</button>
       <div id="adm-rot"></div>
@@ -4049,20 +4049,73 @@ function renderAdmRot(){
   const vigente=getCurrentPeriod();
   list.innerHTML=valHtml+S.rotation.map(p=>{
     const cur=vigente&&p.periodo_num===vigente.periodo_num;
+    // Filas: asignaciones existentes + (en el periodo vigente) trabajadores sin sector
+    const filas=p.assignments.filter(a=>S.workers.some(w=>w.id===a.wid)).map(a=>({wid:a.wid,sid:a.sid}));
+    if(cur){
+      S.workers.filter(w=>!w.baja && !filas.some(f=>f.wid===w.id))
+        .forEach(w=>filas.push({wid:w.id,sid:null}));
+    }
+    // Sectores repetidos en este periodo → se marcan en ámbar
+    const cuenta={}; filas.forEach(f=>{ if(f.sid) cuenta[f.sid]=(cuenta[f.sid]||0)+1; });
     return`<div class="rp" style="${!S.rotacionActiva&&!cur?'opacity:.45':''}">
       <div class="rp-hdr ${cur?'cur':''}">${p.label} ${cur?(S.rotacionActiva?'← ACTUAL':'← SECTOR FIJO'):''}<span style="font-size:11px;opacity:.8">${fmtDate(p.start)}–${fmtDate(p.end)}</span></div>
-      ${p.assignments.map(a=>{
-        const w=S.workers.find(w=>w.id===a.wid);
-        const s=S.sectors.find(s=>s.id===a.sid);
-        if(!w||!s)return'';
+      ${filas.map(f=>{
+        const w=S.workers.find(w=>w.id===f.wid);
+        const repe=f.sid&&cuenta[f.sid]>1;
+        const sinSec=!f.sid;
         return`<div class="rp-row">
           <div class="av c${w.ci}" style="width:30px;height:30px;font-size:11px;flex-shrink:0">${ini(w.name)}</div>
-          <span class="rp-name">${w.name}</span>
-          <span class="rp-sec"><i class="ti ${SEC_ICONS[s.ii%SEC_ICONS.length]}" style="font-size:11px"></i> ${s.name}</span>
+          <span class="rp-name">${w.name}${w.essustituto?' <span style="font-size:10px;color:var(--amber);font-weight:800">SUST.</span>':''}</span>
+          <select onchange="asignarSectorManual(${p.periodo_num},'${w.id}',this.value,this)"
+            title="${repe?'Este sector lo tiene también otro trabajador en este periodo':'Cambiar sector'}"
+            style="font-family:inherit;font-size:13px;font-weight:800;padding:7px 10px;border-radius:20px;cursor:pointer;max-width:55%;
+              border:2px solid ${sinSec?'var(--red)':repe?'var(--amber)':'var(--blue-l)'};
+              background:${sinSec?'var(--red-l)':repe?'#fff7e6':'var(--blue-l)'};color:${sinSec?'var(--red)':'var(--blue-m)'}">
+            <option value="" ${sinSec?'selected':''}>— Sin sector —</option>
+            ${S.sectors.map(s=>`<option value="${s.id}" ${s.id===f.sid?'selected':''}>${s.name}${repe&&s.id===f.sid?' ⚠️':''}</option>`).join('')}
+          </select>
         </div>`;
       }).join('')}
     </div>`;
   }).join('');
+}
+
+// Asignación MANUAL: cambia el sector de un trabajador en un periodo concreto
+async function asignarSectorManual(periodoNum, wid, sid, sel){
+  const p=S.rotation&&S.rotation.find(x=>x.periodo_num===periodoNum);
+  const w=S.workers.find(x=>x.id===wid);
+  if(!p||!w) return;
+  const anterior=(p.assignments.find(a=>a.wid===wid)||{}).sid||'';
+  if(sel) sel.disabled=true;
+
+  // Se borra la fila de ese trabajador en ese periodo y, si hay sector, se crea la nueva
+  const {error:eDel}=await sb.from('limpieza_rotaciones').delete()
+    .eq('trabajador_id',wid).eq('periodo_num',periodoNum);
+  let error=eDel;
+  if(!error && sid){
+    ({error}=await sb.from('limpieza_rotaciones').insert({
+      trabajador_id:wid, sector_id:sid, periodo_num:periodoNum,
+      periodo_inicio:p.start, periodo_fin:p.end
+    }));
+  }
+  if(error){
+    console.error(error);
+    toast('No se pudo guardar el cambio. Revisa la conexión.',true);
+    if(sel){ sel.value=anterior; sel.disabled=false; }
+    return;
+  }
+
+  p.assignments=p.assignments.filter(a=>a.wid!==wid);
+  if(sid) p.assignments.push({wid, sid});
+  renderAdmRot();
+  const s=S.sectors.find(x=>x.id===sid);
+  const otro=sid && p.assignments.find(a=>a.sid===sid && a.wid!==wid);
+  if(otro){
+    const wo=S.workers.find(x=>x.id===otro.wid);
+    toast(`⚠️ ${w.name} → ${s.name}. Ojo: ${wo?wo.name:'otro trabajador'} también lo tiene`,true);
+  } else {
+    toast(sid?`✓ ${w.name} → ${s.name}`:`${w.name} queda sin sector`);
+  }
 }
 
 async function regenerate(){
