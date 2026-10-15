@@ -585,6 +585,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
     <div class="atab-content" id="tab-rotacion">
       <p style="font-size:12px;color:var(--gray);margin-bottom:12px">Vista completa de la rotación del curso. Solo visible desde administración.</p>
+      <div id="rot-switch"></div>
       <button class="btn btn-blue" onclick="regenerate()" style="font-size:14px;margin-bottom:14px"><i class="ti ti-wand"></i> Regenerar rotación aleatoria</button>
       <div id="adm-rot"></div>
     </div>
@@ -980,6 +981,8 @@ const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto'
 // ============ ESTADO ============
 let S = {
   workers:[], sectors:[], rotation:null,
+  rotacionActiva:true,   // false = rotación pausada: cada uno se queda en su sector
+  rotacionFija:null,     // periodo_num congelado mientras la rotación está pausada
   cursoIni:'2024-09-01', cursoFin:'2025-07-31',
   todayLog:{}, depLog:{}
 };
@@ -1049,6 +1052,15 @@ async function initApp(){
     // Cargar config
     const {data:cfg} = await sb.from('limpieza_config').select('id,curso_inicio,curso_fin').maybeSingle();
     if(cfg){ S.cursoIni=cfg.curso_inicio; S.cursoFin=cfg.curso_fin; }
+
+    // Interruptor de rotación (consulta aparte: si aún no existen las columnas, no rompe nada)
+    try{
+      const {data:rc,error:eRc}=await sb.from('limpieza_config').select('rotacion_activa,rotacion_periodo_fijo').maybeSingle();
+      if(!eRc && rc){
+        S.rotacionActiva = rc.rotacion_activa!==false;
+        S.rotacionFija   = rc.rotacion_periodo_fijo ?? null;
+      }
+    }catch(_){}
 
     // Cargar rotaciones
     const {data:rots} = await sb.from('limpieza_rotaciones').select('*').order('periodo_num');
@@ -1454,16 +1466,29 @@ async function saveRotationToDB(){
   }
 }
 
-function getCurrentPeriod(){
-  if(!S.rotation)return null;
+// Periodo que toca por fecha (ignora el interruptor)
+function getPeriodoPorFecha(){
+  if(!S.rotation||!S.rotation.length)return null;
   const now=new Date();
   return S.rotation.find(p=>new Date(p.start)<=now&&new Date(p.end)>=now) || S.rotation[0];
+}
+
+// Periodo vigente. Con la rotación PAUSADA devuelve siempre el periodo congelado,
+// así cada trabajador conserva su sector aunque pasen las fechas.
+function getCurrentPeriod(){
+  if(!S.rotation||!S.rotation.length)return null;
+  if(!S.rotacionActiva){
+    const fijo=S.rotation.find(p=>p.periodo_num===S.rotacionFija);
+    if(fijo) return fijo;
+  }
+  return getPeriodoPorFecha();
 }
 
 // Devuelve info del cambio de sector si es INMINENTE (mañana), o null.
 // Sirve para avisar al trabajador el día antes de rotar.
 function getCambioSectorProximo(w){
   if(!S.rotation||!w) return null;
+  if(!S.rotacionActiva) return null; // rotación pausada: nunca se avisa de cambio
   const hoy=new Date(); hoy.setHours(0,0,0,0);
   const periodoActual=getCurrentPeriod();
   if(!periodoActual) return null;
@@ -1493,6 +1518,7 @@ function getSectorForWorker(w){
 
 function getPeriodLabel(){
   const p=getCurrentPeriod(); if(!p)return'';
+  if(!S.rotacionActiva) return 'Sector fijo';
   return fmtDate(p.start)+' – '+fmtDate(p.end);
 }
 
@@ -1821,7 +1847,9 @@ function verMiRotacion(){
   const hoy=new Date();
   const actual=getCurrentPeriod();
 
-  const filas=S.rotation.map(p=>{
+  // Rotación pausada: solo se enseña su sector fijo, sin calendario de cambios
+  const periodos = S.rotacionActiva ? S.rotation : (actual?[actual]:[]);
+  const filas=periodos.map(p=>{
     const sid=p.assignments.find(a=>a.wid===selW.id)?.sid;
     const s=S.sectors.find(x=>x.id===sid);
     if(!s) return '';
@@ -1834,7 +1862,7 @@ function verMiRotacion(){
       </div>
       <div style="flex:1">
         <div style="font-size:16px;font-weight:900;color:${esActual?'var(--blue-m)':'var(--text)'}">${s.name}</div>
-        <div style="font-size:12px;color:var(--gray);margin-top:2px">${fmtDate(p.start)} — ${fmtDate(p.end)}</div>
+        <div style="font-size:12px;color:var(--gray);margin-top:2px">${S.rotacionActiva?fmtDate(p.start)+' — '+fmtDate(p.end):'Tu sector fijo. De momento no hay cambios.'}</div>
       </div>
       ${esActual?'<span style="background:var(--blue-m);color:#fff;font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px">AHORA</span>':pasado?'<i class="ti ti-check" style="font-size:20px;color:var(--green)"></i>':''}
     </div>`;
@@ -3945,16 +3973,68 @@ function renderAdmBajas(){
 }
 
 // ============ ADMIN: ROTACIÓN ============
+// Interruptor grande ON/OFF de la rotación
+function renderRotSwitch(){
+  const box=document.getElementById('rot-switch'); if(!box) return;
+  const on=S.rotacionActiva;
+  const fijo=(!on&&S.rotation)?S.rotation.find(p=>p.periodo_num===S.rotacionFija):null;
+  box.innerHTML=`
+    <div style="background:${on?'var(--green-l)':'var(--gray-l)'};border:2px solid ${on?'var(--green)':'var(--gray-b)'};border-radius:16px;padding:14px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <i class="ti ${on?'ti-refresh':'ti-player-pause'}" style="font-size:30px;color:${on?'var(--green)':'var(--gray)'}"></i>
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:900;color:var(--text)">Rotación ${on?'ACTIVADA':'DESACTIVADA'}</div>
+          <div style="font-size:12px;color:var(--gray);margin-top:2px;line-height:1.35">${on
+            ?'El personal cambia de sector según las fechas de cada periodo.'
+            :'Cada trabajador se queda en su sector fijo'+(fijo?' (el del '+fijo.label+')':'')+'. No hay cambios ni avisos de rotación.'}</div>
+        </div>
+        <button onclick="toggleRotacion()" aria-label="Activar o desactivar rotación"
+          style="width:64px;height:36px;border-radius:20px;border:none;cursor:pointer;flex-shrink:0;position:relative;background:${on?'var(--green)':'var(--gray-b)'};transition:background .2s">
+          <span style="position:absolute;top:4px;${on?'right:4px':'left:4px'};width:28px;height:28px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
+        </button>
+      </div>
+    </div>`;
+}
+
+async function toggleRotacion(){
+  const activar=!S.rotacionActiva;
+  // Al pausar se congela el periodo que toca HOY: nadie cambia de sector
+  const periodoFijo=activar?null:(getPeriodoPorFecha()?.periodo_num ?? null);
+  const msg=activar
+    ?'¿ACTIVAR la rotación?\n\nCada trabajador pasará al sector que le toque por fechas y volverán los avisos de cambio.'
+    :'¿DESACTIVAR la rotación?\n\nCada trabajador se quedará en el sector que tiene hoy y no cambiará hasta que la vuelvas a activar.';
+  if(!confirm(msg)) return;
+
+  const {data}=await sb.from('limpieza_config').select('id').maybeSingle();
+  const cambios={rotacion_activa:activar, rotacion_periodo_fijo:periodoFijo};
+  let error;
+  if(data){ ({error}=await sb.from('limpieza_config').update(cambios).eq('id',data.id)); }
+  else    { ({error}=await sb.from('limpieza_config').insert(cambios)); }
+  if(error){
+    console.error(error);
+    toast('No se pudo guardar. ¿Has ejecutado interruptor_rotacion.sql en Supabase?',true);
+    return;
+  }
+  S.rotacionActiva=activar;
+  S.rotacionFija=periodoFijo;
+  renderAdmRot();
+  toast(activar?'✓ Rotación activada':'⏸ Rotación desactivada: sectores fijos');
+}
+
 function renderAdmRot(){
+  renderRotSwitch();
   const list=document.getElementById('adm-rot');
   if(!S.rotation||!S.rotation.length){
     list.innerHTML='<div style="text-align:center;padding:20px;color:var(--gray)">Sin rotación. Pulsa el botón para generar.</div>';
     return;
   }
   // Panel de validación
-  const avisos=validarRotacion();
+  // Con la rotación pausada no tiene sentido avisar de repeticiones de sector
+  const avisos=S.rotacionActiva?validarRotacion():[];
   let valHtml='';
-  if(avisos.length){
+  if(!S.rotacionActiva){
+    valHtml='';
+  } else if(avisos.length){
     valHtml=`<div style="background:var(--red-l);border:2px solid var(--red);border-radius:12px;padding:12px;margin-bottom:12px">
       <div style="font-size:13px;font-weight:800;color:var(--red);margin-bottom:6px">⚠️ Problemas detectados (${avisos.length})</div>
       ${avisos.slice(0,8).map(a=>`<div style="font-size:12px;color:var(--red);padding:2px 0">• ${a}</div>`).join('')}
@@ -3966,11 +4046,11 @@ function renderAdmRot(){
     </div>`;
   }
 
-  const now=new Date();
+  const vigente=getCurrentPeriod();
   list.innerHTML=valHtml+S.rotation.map(p=>{
-    const cur=new Date(p.start)<=now&&new Date(p.end)>=now;
-    return`<div class="rp">
-      <div class="rp-hdr ${cur?'cur':''}">${p.label} ${cur?'← ACTUAL':''}<span style="font-size:11px;opacity:.8">${fmtDate(p.start)}–${fmtDate(p.end)}</span></div>
+    const cur=vigente&&p.periodo_num===vigente.periodo_num;
+    return`<div class="rp" style="${!S.rotacionActiva&&!cur?'opacity:.45':''}">
+      <div class="rp-hdr ${cur?'cur':''}">${p.label} ${cur?(S.rotacionActiva?'← ACTUAL':'← SECTOR FIJO'):''}<span style="font-size:11px;opacity:.8">${fmtDate(p.start)}–${fmtDate(p.end)}</span></div>
       ${p.assignments.map(a=>{
         const w=S.workers.find(w=>w.id===a.wid);
         const s=S.sectors.find(s=>s.id===a.sid);
@@ -3987,8 +4067,18 @@ function renderAdmRot(){
 
 async function regenerate(){
   if(!S.workers.length||!S.sectors.length){toast('Añade trabajadores y sectores primero');return;}
+  if(!S.rotacionActiva && !confirm('La rotación está DESACTIVADA.\n\nSi regeneras, los sectores fijos cambiarán al nuevo reparto de hoy. ¿Seguir?')) return;
   generateRotation();
   await saveRotationToDB();
+  // Con la rotación pausada, el nuevo sector fijo es el periodo de hoy del nuevo reparto
+  if(!S.rotacionActiva){
+    S.rotacionFija=getPeriodoPorFecha()?.periodo_num ?? null;
+    const {data}=await sb.from('limpieza_config').select('id').maybeSingle();
+    if(data){
+      const {error}=await sb.from('limpieza_config').update({rotacion_periodo_fijo:S.rotacionFija}).eq('id',data.id);
+      if(error){ console.error(error); toast('No se pudo guardar el sector fijo',true); }
+    }
+  }
   renderAdmRot();
   const avisos=validarRotacion();
   if(avisos.length){
@@ -4151,7 +4241,12 @@ function _sectorDeIncidencia(inc){
 function trabajadorDeSectorEnFecha(sectorId, fechaStr){
   if(!sectorId||!fechaStr||!S.rotation) return null;
   const f=new Date(fechaStr+'T12:00:00');
-  const periodo=S.rotation.find(p=>new Date(p.start)<=f && new Date(p.end)>=f);
+  let periodo=S.rotation.find(p=>new Date(p.start)<=f && new Date(p.end)>=f);
+  // Con la rotación pausada, desde que se congeló manda el sector fijo
+  if(!S.rotacionActiva){
+    const fijo=S.rotation.find(p=>p.periodo_num===S.rotacionFija);
+    if(fijo && f>=new Date(fijo.start)) periodo=fijo;
+  }
   if(!periodo) return null;
   const asig=(periodo.assignments||[]).find(a=>a.sid===sectorId);
   if(!asig) return null;
