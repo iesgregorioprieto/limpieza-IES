@@ -796,11 +796,17 @@ function pintarAdmin(){
   }
 
   else if(adminTab === 'lector'){
-    c.innerHTML = `<div class="ayuda"><i class="ti ti-info-circle"></i> Acerque cualquier llavero al lector: aquí verá el número que lee. Si no aparece nada, revise que el lector esté enchufado y que esta ventana esté activa (haga clic en ella).</div>
+    const dueT = ultimaPrueba && AD.trabajadores.find(t => t.llavero === ultimaPrueba);
+    const dueK = ultimaPrueba && AD.llaves.find(k => k.llavero === ultimaPrueba);
+    const dueno = dueT ? `<span class="tag tag-ok" style="font-size:26px;padding:10px 20px"><i class="ti ti-user"></i>${esc(dueT.nombre)}</span>`
+      : dueK ? `<span class="tag tag-ok" style="font-size:26px;padding:10px 20px"><i class="ti ti-key"></i>Llave: ${esc(dueK.nombre)}</span>`
+      : ultimaPrueba ? '<span class="tag tag-rd" style="font-size:22px;padding:10px 20px">Llavero sin asignar</span>' : '';
+    c.innerHTML = `<div class="ayuda"><i class="ti ti-info-circle"></i> Modo prueba: acerque llaveros al lector y verá de quién es cada uno. <b>Aquí no se ficha nada.</b> Si no aparece nada, revise que el lector esté enchufado y haga clic en esta ventana.</div>
       <div style="text-align:center;padding:20px">
         <div style="color:var(--gray);font-weight:700">ÚLTIMA LECTURA</div>
         <div class="prueba">${ultimaPrueba ? esc(ultimaPrueba) : '—'}</div>
-        <div style="color:var(--gray)">${ultimaPrueba ? ultimaPrueba.length + ' caracteres' : 'Esperando llavero…'}</div>
+        <div style="margin:10px 0">${dueno}</div>
+        <div style="color:var(--gray)">${ultimaPrueba ? '' : 'Esperando llavero…'}</div>
       </div>
       <hr style="border:none;border-top:1px solid var(--line);margin:20px 0">
       <div class="barra-acc"><button class="btn btn-r" onclick="desactivarTerminal()"><i class="ti ti-device-desktop-off"></i>Desactivar este ordenador</button>
@@ -843,6 +849,11 @@ async function capturaRecibida(code){
   if(!r) return;
   pitido('ok'); cerrarCaptura(); toast('Llavero asignado a ' + dst.nombre + ' ✓');
   await cargarAdmin();
+  // Seguir con la siguiente persona que no tenga llavero
+  if(dst.destino === 'trabajador' && AD){
+    const sig = AD.trabajadores.find(t => !t.llavero && !t.baja);
+    if(sig) setTimeout(() => pedirLlavero('trabajador', sig.id), 900);
+  }
 }
 async function quitarLlavero(destino, id){
   if(!confirm('¿Quitar el llavero? Dejará de servir hasta que se asigne otro.')) return;
