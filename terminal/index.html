@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terminal Conserjería</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --navy:#0f4a8a; --blue:#1a6dbf; --blue-l:#e7f0fb;
+  --green:#16a34a; --green-l:#dcfce7;
+  --amber:#d97706; --amber-l:#fef3c7;
+  --red:#dc2626; --red-l:#fee2e2;
+  --bg:#eef2f7; --card:#fff; --text:#0f172a; --gray:#64748b; --gray-l:#f1f5f9; --line:#dbe3ee;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Barlow',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;user-select:none;cursor:default}
+h1,h2,h3,.cond{font-family:'Barlow Condensed',system-ui,sans-serif}
+button{font-family:inherit;cursor:pointer}
+input,textarea{font-family:inherit}
+.hidden{display:none!important}
+
+/* ---------- Pantalla principal ---------- */
+#main{height:100vh;display:grid;grid-template-rows:auto 1fr;}
+header{background:var(--navy);color:#fff;display:flex;align-items:center;gap:18px;padding:14px 28px}
+header .tit{font-family:'Barlow Condensed';font-weight:800;font-size:26px;letter-spacing:.5px;line-height:1}
+header .sub{font-size:14px;opacity:.75;margin-top:3px}
+header .esp{flex:1}
+header .reloj{font-family:'Barlow Condensed';font-weight:800;font-size:46px;line-height:1}
+header .fecha{font-size:15px;opacity:.8;text-align:right;text-transform:capitalize}
+#banner-red{background:var(--amber);color:#fff;border-radius:10px;padding:8px 14px;font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
+
+.cuerpo{display:grid;grid-template-columns:1.25fr 1fr;gap:24px;padding:24px 28px;min-height:0}
+.panel{background:var(--card);border-radius:22px;box-shadow:0 2px 10px rgba(15,74,138,.07);min-height:0;display:flex;flex-direction:column}
+.acerque{align-items:center;justify-content:center;text-align:center;padding:30px;position:relative;overflow:hidden}
+.onda{width:230px;height:230px;border-radius:50%;background:var(--blue-l);display:flex;align-items:center;justify-content:center;position:relative;margin-bottom:30px}
+.onda::before,.onda::after{content:"";position:absolute;inset:0;border-radius:50%;border:3px solid var(--blue);opacity:0;animation:pulso 2.6s infinite}
+.onda::after{animation-delay:1.3s}
+@keyframes pulso{0%{transform:scale(.85);opacity:.55}100%{transform:scale(1.45);opacity:0}}
+.onda i{font-size:120px;color:var(--blue)}
+.acerque h2{font-size:58px;font-weight:900;line-height:1;color:var(--navy)}
+.acerque p{font-size:21px;color:var(--gray);margin-top:12px;font-weight:600}
+.leyenda{display:flex;gap:14px;margin-top:30px;flex-wrap:wrap;justify-content:center}
+.leyenda span{background:var(--gray-l);border-radius:999px;padding:9px 16px;font-weight:700;font-size:15px;color:#334155;display:flex;gap:8px;align-items:center}
+.leyenda i{font-size:20px;color:var(--blue)}
+
+.der{display:flex;flex-direction:column;gap:24px;min-height:0}
+.panel h3{font-size:24px;font-weight:800;color:var(--navy);padding:18px 22px 10px;display:flex;align-items:center;gap:10px}
+.panel h3 .cnt{margin-left:auto;background:var(--blue-l);color:var(--blue);border-radius:999px;padding:2px 12px;font-size:18px}
+.lista{overflow:auto;padding:0 14px 14px;flex:1;min-height:0}
+.fila{display:flex;align-items:center;gap:14px;padding:12px 10px;border-bottom:1px solid var(--line)}
+.fila:last-child{border-bottom:none}
+.fila .ico{width:46px;height:46px;border-radius:12px;background:var(--blue-l);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:25px;flex-shrink:0}
+.fila .t1{font-family:'Barlow Condensed';font-weight:800;font-size:23px;line-height:1.05}
+.fila .t2{font-size:15px;color:var(--gray);font-weight:600}
+.fila .hora{margin-left:auto;text-align:right;font-weight:700;font-size:15px;color:var(--gray);white-space:nowrap}
+.fila.aviso .ico{background:var(--amber-l);color:var(--amber)} .fila.aviso .hora{color:var(--amber)}
+.fila.alerta .ico{background:var(--red-l);color:var(--red)} .fila.alerta .hora{color:var(--red)}
+.vacio{color:var(--gray);text-align:center;padding:26px 10px;font-size:17px;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0 20px 18px}
+.chip{border-radius:10px;padding:7px 12px;font-weight:700;font-size:15px;background:var(--gray-l);color:var(--gray);display:flex;gap:6px;align-items:center}
+.chip.dentro{background:var(--green-l);color:var(--green)}
+.chip.fuera{background:var(--blue-l);color:var(--blue)}
+#btn-gestion{position:fixed;right:14px;bottom:12px;width:44px;height:44px;border-radius:50%;border:none;background:transparent;color:#94a3b8;font-size:24px;opacity:.6}
+#btn-gestion:hover{opacity:1;background:#fff}
+
+/* ---------- Resultado a pantalla completa ---------- */
+#res{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;z-index:50;padding:40px}
+#res .circ{width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;margin-bottom:26px;animation:pop .35s ease}
+@keyframes pop{0%{transform:scale(.5)}70%{transform:scale(1.08)}100%{transform:scale(1)}}
+#res .circ i{font-size:100px}
+#res .r-tit{font-family:'Barlow Condensed';font-weight:800;font-size:34px;letter-spacing:3px;opacity:.95}
+#res .r-nom{font-family:'Barlow Condensed';font-weight:900;font-size:76px;line-height:1;margin:8px 0 4px}
+#res .r-gran{font-family:'Barlow Condensed';font-weight:900;font-size:120px;line-height:1}
+#res .r-sub{font-size:28px;font-weight:700;margin-top:14px;opacity:.95;max-width:1000px}
+#res .r-barra{position:absolute;left:0;bottom:0;height:10px;background:rgba(255,255,255,.55)}
+
+/* ---------- Elegir profesor ---------- */
+#picker{position:fixed;inset:0;background:var(--bg);z-index:40;display:flex;flex-direction:column}
+.pk-head{background:var(--amber);color:#fff;padding:18px 28px;display:flex;align-items:center;gap:18px}
+.pk-head i{font-size:48px}
+.pk-head .l1{font-size:18px;font-weight:700;opacity:.9}
+.pk-head .l2{font-family:'Barlow Condensed';font-weight:900;font-size:44px;line-height:1}
+.pk-head .esp{flex:1}
+.btn-cancel{background:#fff;color:var(--red);border:none;border-radius:14px;padding:16px 26px;font-size:22px;font-weight:800;display:flex;gap:8px;align-items:center}
+.pk-buscar{padding:18px 28px 8px;display:flex;gap:12px}
+.pk-buscar input{flex:1;font-size:26px;padding:14px 20px;border-radius:14px;border:2px solid var(--line);outline:none;font-weight:600}
+.pk-buscar input:focus{border-color:var(--blue)}
+.pk-otro{background:#fff;border:2px dashed var(--gray);color:var(--gray);border-radius:14px;padding:0 20px;font-size:19px;font-weight:700}
+.pk-cuerpo{flex:1;overflow:auto;padding:8px 28px 28px}
+.pk-sec{font-family:'Barlow Condensed';font-weight:800;font-size:20px;color:var(--gray);letter-spacing:1px;margin:12px 0 10px;text-transform:uppercase}
+.pk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.pk-btn{background:#fff;border:2px solid var(--line);border-radius:14px;padding:16px 18px;text-align:left;font-size:20px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:10px;transition:.1s}
+.pk-btn:hover{border-color:var(--blue);background:var(--blue-l)}
+.pk-btn.frec{border-color:var(--amber);background:var(--amber-l)}
+.pk-btn i{color:var(--blue);font-size:22px}
+.pk-tiempo{height:6px;background:var(--amber);transition:width 1s linear}
+
+/* ---------- Ventanas (PIN, captura, gestión) ---------- */
+.velo{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
+.caja{background:#fff;border-radius:22px;padding:28px;width:min(440px,100%);text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.caja h2{font-size:32px;font-weight:800;color:var(--navy);margin-bottom:6px}
+.caja p{color:var(--gray);font-size:16px;font-weight:600}
+.puntos{display:flex;justify-content:center;gap:14px;margin:22px 0;min-height:24px}
+.puntos span{width:20px;height:20px;border-radius:50%;background:var(--navy)}
+.teclado{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.teclado button{font-family:'Barlow Condensed';font-size:34px;font-weight:800;padding:14px 0;border-radius:14px;border:2px solid var(--line);background:var(--gray-l);color:var(--text)}
+.teclado button:hover{background:var(--blue-l);border-color:var(--blue)}
+.teclado .ok{background:var(--green);color:#fff;border-color:var(--green)}
+.btn{border:none;border-radius:12px;padding:12px 18px;font-size:16px;font-weight:700;display:inline-flex;gap:7px;align-items:center;justify-content:center}
+.btn-p{background:var(--blue);color:#fff} .btn-g{background:var(--gray-l);color:var(--text)} .btn-r{background:var(--red-l);color:var(--red)} .btn-v{background:var(--green-l);color:var(--green)}
+.btn-sm{padding:8px 12px;font-size:14px;border-radius:10px}
+.err{color:var(--red);font-weight:700;margin-top:12px;min-height:20px}
+
+#admin{position:fixed;inset:0;background:var(--bg);z-index:45;display:flex;flex-direction:column}
+.ad-head{background:var(--navy);color:#fff;padding:14px 28px;display:flex;align-items:center;gap:16px}
+.ad-head h2{font-size:30px;font-weight:800}
+.tabs{display:flex;gap:6px;padding:14px 28px 0}
+.tab{background:transparent;border:none;padding:12px 20px;border-radius:12px 12px 0 0;font-size:18px;font-weight:700;color:var(--gray);display:flex;gap:7px;align-items:center}
+.tab.on{background:#fff;color:var(--navy)}
+.ad-cuerpo{flex:1;overflow:auto;background:#fff;margin:0 28px 28px;border-radius:0 18px 18px 18px;padding:22px}
+.tabla{width:100%;border-collapse:collapse}
+.tabla th{text-align:left;font-size:13px;color:var(--gray);letter-spacing:.6px;text-transform:uppercase;padding:8px 10px;border-bottom:2px solid var(--line)}
+.tabla td{padding:11px 10px;border-bottom:1px solid var(--line);font-size:17px;vertical-align:middle}
+.tabla td.acc{text-align:right;white-space:nowrap}
+.tabla td.acc .btn{margin-left:6px}
+.tag{display:inline-flex;gap:5px;align-items:center;border-radius:8px;padding:4px 10px;font-weight:700;font-size:14px}
+.tag-ok{background:var(--green-l);color:var(--green)} .tag-no{background:var(--gray-l);color:var(--gray)} .tag-am{background:var(--amber-l);color:var(--amber)} .tag-rd{background:var(--red-l);color:var(--red)}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:14px;color:var(--gray)}
+.barra-acc{display:flex;gap:10px;margin-bottom:18px;align-items:center;flex-wrap:wrap}
+.barra-acc input{font-size:17px;padding:11px 14px;border-radius:12px;border:2px solid var(--line);outline:none;min-width:280px}
+.barra-acc textarea{font-size:16px;padding:11px 14px;border-radius:12px;border:2px solid var(--line);outline:none;width:100%;height:150px;resize:vertical}
+.ayuda{background:var(--blue-l);color:var(--navy);border-radius:12px;padding:12px 16px;font-size:15px;font-weight:600;margin-bottom:16px;line-height:1.45}
+.inactivo td{opacity:.45}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--text);color:#fff;padding:14px 24px;border-radius:14px;font-weight:700;font-size:18px;z-index:90;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+#toast.mal{background:var(--red)}
+.prueba{font-family:'Barlow Condensed';font-weight:900;font-size:64px;color:var(--navy);margin:14px 0 4px;word-break:break-all}
+
+/* Pantalla de activación */
+#setup{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:70}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<!-- ===================== PANTALLA PRINCIPAL ===================== -->
+<div id="main">
+  <header>
+    <i class="ti ti-building-community" style="font-size:40px"></i>
+    <div>
+      <div class="tit">IES GREGORIO PRIETO · CONSERJERÍA</div>
+      <div class="sub">Fichaje del personal de limpieza y préstamo de llaves</div>
+    </div>
+    <div class="esp"></div>
+    <div id="banner-red" class="hidden"><i class="ti ti-wifi-off"></i><span id="banner-txt">Sin conexión</span></div>
+    <div>
+      <div class="reloj" id="reloj">--:--</div>
+      <div class="fecha" id="fecha"></div>
+    </div>
+  </header>
+
+  <div class="cuerpo">
+    <div class="panel acerque">
+      <div class="onda"><i class="ti ti-nfc"></i></div>
+      <h2>Acerque el llavero</h2>
+      <p>al lector que hay sobre el mostrador</p>
+      <div class="leyenda">
+        <span><i class="ti ti-clock-hour-8"></i>Personal de limpieza: entrada y salida</span>
+        <span><i class="ti ti-key"></i>Llaves: préstamo y devolución</span>
+      </div>
+    </div>
+
+    <div class="der">
+      <div class="panel" style="flex:1.6">
+        <h3><i class="ti ti-key"></i>Llaves prestadas <span class="cnt" id="n-fuera">0</span></h3>
+        <div class="lista" id="lista-fuera"></div>
+      </div>
+      <div class="panel" style="flex:1">
+        <h3><i class="ti ti-users"></i>Limpieza hoy <span class="cnt" id="n-dentro">0</span></h3>
+        <div class="lista" style="padding:0"><div class="chips" id="chips-personal"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<button id="btn-gestion" title="Gestión" onclick="abrirPin('gestion')"><i class="ti ti-settings"></i></button>
+
+<!-- ===================== RESULTADO ===================== -->
+<div id="res" class="hidden" onclick="cerrarRes()">
+  <div class="circ"><i id="r-ico" class="ti"></i></div>
+  <div class="r-tit" id="r-tit"></div>
+  <div class="r-nom" id="r-nom"></div>
+  <div class="r-gran" id="r-gran"></div>
+  <div class="r-sub" id="r-sub"></div>
+  <div class="r-barra" id="r-barra"></div>
+</div>
+
+<!-- ===================== ELEGIR PROFESOR ===================== -->
+<div id="picker" class="hidden">
+  <div class="pk-head">
+    <i class="ti ti-key"></i>
+    <div>
+      <div class="l1">¿Quién se lleva la llave?</div>
+      <div class="l2" id="pk-llave"></div>
+    </div>
+    <div class="esp"></div>
+    <button class="btn-cancel" onclick="cerrarPicker()"><i class="ti ti-x"></i>Cancelar</button>
+  </div>
+  <div class="pk-tiempo" id="pk-tiempo" style="width:100%"></div>
+  <div class="pk-buscar">
+    <input id="pk-q" placeholder="Buscar profesor/a…" autocomplete="off" oninput="pintarPicker()">
+    <button class="pk-otro" onclick="prestarOtro()"><i class="ti ti-pencil"></i> Otra persona</button>
+  </div>
+  <div class="pk-cuerpo" id="pk-cuerpo"></div>
+</div>
+
+<!-- ===================== GESTIÓN ===================== -->
+<div id="admin" class="hidden">
+  <div class="ad-head">
+    <i class="ti ti-settings" style="font-size:34px"></i>
+    <h2>Gestión del terminal</h2>
+    <div style="flex:1"></div>
+    <button class="btn btn-g" onclick="cerrarAdmin()"><i class="ti ti-arrow-back-up"></i>Volver al terminal</button>
+  </div>
+  <div class="tabs" id="ad-tabs">
+    <button class="tab on" data-t="personal"><i class="ti ti-users"></i>Personal de limpieza</button>
+    <button class="tab" data-t="llaves"><i class="ti ti-key"></i>Llaves</button>
+    <button class="tab" data-t="profesores"><i class="ti ti-school"></i>Profesores</button>
+    <button class="tab" data-t="historial"><i class="ti ti-history"></i>Historial</button>
+    <button class="tab" data-t="lector"><i class="ti ti-nfc"></i>Lector</button>
+  </div>
+  <div class="ad-cuerpo" id="ad-cuerpo"></div>
+</div>
+
+<!-- ===================== PIN ===================== -->
+<div id="pin" class="velo hidden">
+  <div class="caja">
+    <h2 id="pin-tit">PIN de administración</h2>
+    <p id="pin-sub">El mismo de la app de limpieza</p>
+    <div class="puntos" id="pin-puntos"></div>
+    <div class="teclado" id="pin-teclado"></div>
+    <div class="err" id="pin-err"></div>
+    <button class="btn btn-g" style="margin-top:8px;width:100%" onclick="cerrarPin()">Cancelar</button>
+  </div>
+</div>
+
+<!-- ===================== CAPTURA DE LLAVERO ===================== -->
+<div id="captura" class="velo hidden">
+  <div class="caja" style="width:min(520px,100%)">
+    <div class="onda" style="width:150px;height:150px;margin:6px auto 22px"><i class="ti ti-nfc" style="font-size:80px"></i></div>
+    <h2>Acerque el llavero</h2>
+    <p id="cap-para"></p>
+    <div style="margin-top:20px;display:flex;gap:8px">
+      <input id="cap-manual" placeholder="o escriba el número a mano" style="flex:1;font-size:17px;padding:11px 14px;border-radius:12px;border:2px solid var(--line)">
+      <button class="btn btn-p" onclick="capturaManual()">Usar</button>
+    </div>
+    <button class="btn btn-g" style="margin-top:14px;width:100%" onclick="cerrarCaptura()">Cancelar</button>
+  </div>
+</div>
+
+<!-- ===================== ACTIVAR TERMINAL ===================== -->
+<div id="setup" class="hidden">
+  <div class="caja" style="width:min(560px,100%);padding:36px">
+    <i class="ti ti-device-desktop-check" style="font-size:70px;color:var(--blue)"></i>
+    <h2 style="margin-top:10px">Activar este ordenador</h2>
+    <p style="margin:10px 0 24px;line-height:1.5">Solo los ordenadores activados pueden fichar y prestar llaves.<br>Se hace una sola vez, con el PIN de administración.</p>
+    <button class="btn btn-p" style="font-size:20px;padding:16px 28px" onclick="abrirPin('activar')"><i class="ti ti-lock-open"></i>Activar con PIN</button>
+    <div class="err" id="setup-err"></div>
+  </div>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<script>
+// =====================================================================
+//  CONFIGURACIÓN
+// =====================================================================
+const SUPA_URL = 'https://wtxgisivjvxhcvnjsrxp.supabase.co';
+const SUPA_KEY = 'sb_publishable_AeaFJyjgL1nG2DmaYFlIcQ_Uk57OCT8';
+// Si el PC arranca sin internet, la librería no carga: el terminal sigue
+// funcionando (guarda fichajes) y la reintenta cada minuto.
+let sb = null;
+function conectar(){
+  if(sb) return sb;
+  try{ if(window.supabase) sb = window.supabase.createClient(SUPA_URL, SUPA_KEY); }catch(e){ sb = null; }
+  return sb;
+}
+conectar();
+setInterval(() => {
+  if(sb || !navigator.onLine) return;
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  s.onload = () => { conectar(); enviarCola(); cargarEstado(); };
+  document.head.appendChild(s);
+}, 60000);
+
+// Lector USB "tipo teclado": escribe el número muy rápido y pulsa Intro.
+const LECTOR = { minLen: 6, maxGap: 60, stallMs: 180 };
+const T_RESULTADO = 4500;     // ms que se ve el resultado
+const T_PICKER = 45;          // s para elegir profesor antes de cancelar
+const T_ADMIN = 5 * 60000;    // la gestión se cierra sola tras 5 min sin uso
+
+// =====================================================================
+//  UTILIDADES
+// =====================================================================
+const $ = id => document.getElementById(id);
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtH = iso => iso ? new Date(iso).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Madrid'}) : '';
+const fmtF = iso => iso ? new Date(iso).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',timeZone:'Europe/Madrid'}) : '';
+const mismoDia = iso => fmtF(iso) === fmtF(new Date().toISOString());
+const primerNombre = n => String(n || '').split(' ')[0];
+
+function toast(msg, mal){
+  const t = $('toast'); t.textContent = msg; t.className = mal ? 'mal' : '';
+  clearTimeout(t._t); t._t = setTimeout(() => t.className = 'hidden', 3200);
+}
+
+// Llamada a Supabase con límite de tiempo. Devuelve {data, error, red}
+async function rpc(fn, args){
+  if(!conectar()) return { error: new Error('sin libreria'), red: true };
+  try{
+    const r = await Promise.race([
+      sb.rpc(fn, args),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 9000))
+    ]);
+    if(r.error){
+      const red = !navigator.onLine || /fetch|network|timeout|Load failed/i.test(r.error.message || '');
+      return { error: r.error, red };
+    }
+    return { data: r.data };
+  }catch(e){
+    return { error: e, red: true };
+  }
+}
+
+// ---------- Sonidos ----------
+let audio = null;
+function pitido(tipo){
+  try{
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    if(audio.state === 'suspended') audio.resume();
+    const notas = tipo === 'ok' ? [[880,.12],[1320,.16]] : tipo === 'aviso' ? [[660,.18]] : [[260,.18],[0,.06],[260,.25]];
+    let t = audio.currentTime;
+    for(const [f, d] of notas){
+      if(f){
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.type = 'square'; o.frequency.value = f; g.gain.value = .08;
+        o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + d);
+      }
+      t += d;
+    }
+  }catch(e){}
+}
+document.addEventListener('pointerdown', () => { try{ audio = audio || new AudioContext(); audio.resume(); }catch(e){} }, { once: true });
+
+// =====================================================================
+//  LECTOR DE LLAVEROS (emulación de teclado)
+//  Distingue al lector de una persona tecleando por la velocidad.
+// =====================================================================
+let kb = { buf: '', tLast: 0, gapMax: 0, stall: null };
+function kbReset(){ kb.buf = ''; kb.gapMax = 0; clearTimeout(kb.stall); }
+function kbEsLector(){ return kb.buf.length >= LECTOR.minLen && kb.gapMax <= LECTOR.maxGap; }
+function kbFin(){
+  const code = kb.buf.toUpperCase();
+  kbReset();
+  quitarDeInput(code);
+  onLlavero(code);
+}
+// Si había un cuadro de texto activo, el lector habrá escrito el número dentro: lo quitamos
+function quitarDeInput(code){
+  const el = document.activeElement;
+  if(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')){
+    const v = el.value;
+    if(v.toUpperCase().endsWith(code)){
+      el.value = v.slice(0, v.length - code.length);
+      el.dispatchEvent(new Event('input'));
+    }
+  }
+}
+document.addEventListener('keydown', e => {
+  const now = performance.now();
+  if(e.key === 'Enter'){
+    if(kbEsLector()){ e.preventDefault(); e.stopPropagation(); clearTimeout(kb.stall); kbFin(); }
+    else kbReset();
+    return;
+  }
+  if(e.key.length !== 1 || !/[0-9a-zA-Z]/.test(e.key)){ kbReset(); return; }
+  const gap = now - kb.tLast;
+  if(kb.buf && gap > LECTOR.maxGap){ kb.buf = ''; kb.gapMax = 0; }
+  else if(kb.buf) kb.gapMax = Math.max(kb.gapMax, gap);
+  kb.buf += e.key; kb.tLast = now;
+  clearTimeout(kb.stall);
+  // Por si algún lector no manda Intro al final
+  kb.stall = setTimeout(() => { if(kb.buf.length >= 8 && kbEsLector()) kbFin(); else kbReset(); }, LECTOR.stallMs);
+}, true);
+
+// =====================================================================
+//  ESTADO GENERAL
+// =====================================================================
+let TOKEN = LS.get('tc_token', null);
+let ESTADO = LS.get('tc_estado', { fuera: [], profesores: [], codigos_llaves: [], personal: [] });
+let COLA = LS.get('tc_cola', []);          // fichajes guardados sin conexión
+let ultimaLectura = { code: '', t: 0 };
+let ocupado = false;
+let ultimaPrueba = null;                   // para la pestaña "Lector"
+
+// ¿Qué hacer con cada llavero leído?
+async function onLlavero(code){
+  ultimaPrueba = code;
+  if(!$('captura').classList.contains('hidden')){ capturaRecibida(code); return; }
+  if(!$('pin').classList.contains('hidden')){ pinBuf = ''; pintarPin(); return; }
+  if(!$('admin').classList.contains('hidden')){
+    if(adminTab === 'lector') pintarAdmin();
+    else toast('Estás en Gestión. Pulsa "Volver al terminal" para fichar.');
+    return;
+  }
+  if(!TOKEN) return;
+
+  // Algunos lectores leen dos veces seguidas el mismo llavero
+  const ahora = Date.now();
+  if(code === ultimaLectura.code && ahora - ultimaLectura.t < 3000) return;
+  ultimaLectura = { code, t: ahora };
+  if(ocupado) return;
+
+  if(!$('picker').classList.contains('hidden')) cerrarPicker(true);
+  ocupado = true;
+  try{ await procesar(code); } finally { ocupado = false; }
+}
+
+async function procesar(code){
+  const r = await rpc('terminal_leer', { p_token: TOKEN, p_llavero: code });
+
+  if(r.red){
+    if((ESTADO.codigos_llaves || []).includes(code)){
+      mostrarRes({ color: 'var(--red)', ico: 'ti-wifi-off', tit: 'SIN CONEXIÓN',
+        nom: 'Llaves no disponibles', sub: 'Sin internet no se pueden prestar llaves. Apúntelo en papel.', tipo: 'error' });
+    }else{
+      COLA.push({ code, at: new Date().toISOString() }); LS.set('tc_cola', COLA);
+      pintarBanner();
+      mostrarRes({ color: 'var(--amber)', ico: 'ti-device-floppy', tit: 'FICHAJE GUARDADO',
+        gran: fmtH(new Date().toISOString()), sub: 'No hay internet. Se enviará solo cuando vuelva la conexión.', tipo: 'aviso' });
+    }
+    return;
+  }
+  if(r.error){ errorServidor(r.error); return; }
+
+  const d = r.data || {};
+  if(!d.ok){ if(d.error === 'terminal') terminalNoAutorizado(); else toast('Lectura no válida', true); return; }
+
+  if(d.tipo === 'fichaje'){
+    if(d.accion === 'entrada'){
+      mostrarRes({ color: 'var(--green)', ico: 'ti-login', tit: 'ENTRADA', nom: d.nombre, gran: fmtH(d.hora),
+        sub: d.baja ? '⚠️ Figura de baja en la app. Avise a secretaría.' : '¡Buena jornada, ' + esc(primerNombre(d.nombre)) + '!', tipo: d.baja ? 'aviso' : 'ok' });
+    }else if(d.accion === 'salida'){
+      const min = Math.round((new Date(d.hora) - new Date(d.entrada)) / 60000);
+      mostrarRes({ color: 'var(--blue)', ico: 'ti-logout', tit: 'SALIDA', nom: d.nombre, gran: fmtH(d.hora),
+        sub: `Hoy: ${Math.floor(min/60)} h ${String(min%60).padStart(2,'0')} min · ¡Hasta mañana!`, tipo: 'ok' });
+    }else if(d.accion === 'ya_dentro'){
+      mostrarRes({ color: 'var(--amber)', ico: 'ti-alert-circle', tit: 'YA HABÍAS FICHADO', nom: d.nombre,
+        sub: `Entrada registrada a las ${fmtH(d.hora)}.<br>Para la salida, pasa el llavero al terminar.`, tipo: 'aviso' });
+    }else{
+      mostrarRes({ color: 'var(--amber)', ico: 'ti-alert-circle', tit: 'SALIDA YA FICHADA', nom: d.nombre,
+        sub: `Tu salida de hoy quedó registrada a las ${fmtH(d.hora)}.`, tipo: 'aviso' });
+    }
+  }else if(d.tipo === 'llave'){
+    if(d.accion === 'devuelta'){
+      mostrarRes({ color: 'var(--green)', ico: 'ti-key', tit: 'LLAVE DEVUELTA', nom: d.llave,
+        sub: `La tenía ${esc(d.profesor)} desde las ${fmtH(d.desde)}${mismoDia(d.desde) ? '' : ' del ' + fmtF(d.desde)}`, tipo: 'ok' });
+    }else if(d.accion === 'elegir'){
+      pitido('aviso'); abrirPicker(d);
+    }
+  }else{
+    mostrarRes({ color: 'var(--red)', ico: 'ti-help-hexagon', tit: 'LLAVERO NO REGISTRADO', nom: 'Nº ' + d.llavero,
+      sub: 'Este llavero no está dado de alta. Avise a secretaría.', tipo: 'error' });
+  }
+  cargarEstado();
+}
+
+function errorServidor(err){
+  console.error(err);
+  if(err && (err.code === 'PGRST202' || /function .* does not exist|Could not find the function/i.test(err.message || '')))
+    mostrarRes({ color: 'var(--red)', ico: 'ti-database-off', tit: 'FALTA INSTALAR', nom: 'Base de datos',
+      sub: 'Hay que ejecutar terminal_conserjeria.sql en Supabase.', tipo: 'error' });
+  else
+    mostrarRes({ color: 'var(--red)', ico: 'ti-alert-triangle', tit: 'ERROR', nom: 'No se ha podido registrar',
+      sub: 'Vuelva a pasar el llavero. Si se repite, avise a secretaría.', tipo: 'error' });
+}
+
+// ---------- Pantalla de resultado ----------
+function mostrarRes({ color, ico, tit, nom = '', gran = '', sub = '', tipo = 'ok', ms = T_RESULTADO }){
+  const r = $('res');
+  r.style.background = color;
+  $('r-ico').className = 'ti ' + ico;
+  $('r-tit').textContent = tit;
+  $('r-nom').textContent = nom;
+  $('r-gran').textContent = gran;
+  $('r-sub').innerHTML = sub;
+  r.classList.remove('hidden');
+  pitido(tipo);
+  const b = $('r-barra');
+  b.style.transition = 'none'; b.style.width = '100%';
+  requestAnimationFrame(() => requestAnimationFrame(() => { b.style.transition = `width ${ms}ms linear`; b.style.width = '0%'; }));
+  clearTimeout(r._t); r._t = setTimeout(cerrarRes, ms);
+}
+function cerrarRes(){ $('res').classList.add('hidden'); }
+
+// =====================================================================
+//  ELEGIR PROFESOR (préstamo)
+// =====================================================================
+let pk = null;
+function abrirPicker(d){
+  cerrarRes();
+  pk = { llave_id: d.llave_id, llave: d.llave, frec: d.frecuentes || [], resta: T_PICKER };
+  $('pk-llave').textContent = d.llave;
+  $('pk-q').value = '';
+  $('picker').classList.remove('hidden');
+  pintarPicker();
+  setTimeout(() => $('pk-q').focus(), 50);
+  clearInterval(pk.int);
+  pk.int = setInterval(() => {
+    if(!pk) return;
+    pk.resta--;
+    $('pk-tiempo').style.width = (pk.resta / T_PICKER * 100) + '%';
+    if(pk.resta <= 0){ cerrarPicker(); toast('Préstamo cancelado: no se eligió a nadie', true); }
+  }, 1000);
+}
+// Cualquier movimiento en la pantalla de elegir reinicia el tiempo
+['pointermove','keydown','wheel'].forEach(ev => document.addEventListener(ev, () => {
+  if(pk){ pk.resta = T_PICKER; $('pk-tiempo').style.width = '100%'; }
+}, { passive: true }));
+
+function cerrarPicker(silencio){
+  if(pk) clearInterval(pk.int);
+  pk = null;
+  $('picker').classList.add('hidden');
+  $('pk-tiempo').style.width = '100%';
+}
+
+function normal(s){ return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+
+function pintarPicker(){
+  if(!pk) return;
+  const q = normal($('pk-q').value.trim());
+  const profes = ESTADO.profesores || [];
+  const filtra = p => !q || normal(p.nombre).split(/\s+/).some(w => w.startsWith(q)) || normal(p.nombre).includes(q);
+  const frec = pk.frec.filter(filtra);
+  const idsFrec = new Set(frec.map(p => p.id));
+  const resto = profes.filter(p => filtra(p) && !idsFrec.has(p.id));
+  const btn = (p, cls) => `<button class="pk-btn ${cls}" onclick="prestarA('${p.id}')"><i class="ti ti-user"></i>${esc(p.nombre)}</button>`;
+  let h = '';
+  if(frec.length) h += `<div class="pk-sec">Suelen llevársela</div><div class="pk-grid">${frec.map(p => btn(p, 'frec')).join('')}</div>`;
+  if(resto.length) h += `<div class="pk-sec">${q ? 'Resultados' : 'Todo el profesorado'}</div><div class="pk-grid">${resto.map(p => btn(p, '')).join('')}</div>`;
+  if(!frec.length && !resto.length){
+    h = profes.length
+      ? `<div class="vacio">Nadie coincide con «${esc($('pk-q').value)}». Pulse <b>Otra persona</b> para escribir el nombre.</div>`
+      : `<div class="vacio">Aún no hay profesores dados de alta. Pulse <b>Otra persona</b> para escribir el nombre.</div>`;
+  }
+  $('pk-cuerpo').innerHTML = h;
+}
+
+async function prestarA(profId, nombreLibre){
+  if(!pk) return;
+  const llave = pk;
+  const r = await rpc('terminal_prestar', { p_token: TOKEN, p_llave_id: llave.llave_id, p_profesor_id: profId || null, p_nombre: nombreLibre || null });
+  cerrarPicker();
+  if(r.red){ mostrarRes({ color: 'var(--red)', ico: 'ti-wifi-off', tit: 'SIN CONEXIÓN', nom: 'No se ha prestado', sub: 'Apúntelo en papel y vuelva a intentarlo luego.', tipo: 'error' }); return; }
+  if(r.error){ errorServidor(r.error); return; }
+  const d = r.data || {};
+  if(!d.ok){
+    if(d.error === 'ya_prestada') toast('Esa llave ya figura como prestada. Pásela otra vez para devolverla.', true);
+    else if(d.error === 'terminal') terminalNoAutorizado();
+    else toast('No se pudo registrar el préstamo', true);
+    return;
+  }
+  mostrarRes({ color: 'var(--navy)', ico: 'ti-key', tit: 'LLAVE PRESTADA', nom: d.llave, gran: fmtH(d.hora),
+    sub: 'Se la lleva <b>' + esc(d.profesor) + '</b>', tipo: 'ok' });
+  cargarEstado();
+}
+function prestarOtro(){
+  const n = prompt('Nombre de quien se lleva la llave:', $('pk-q').value);
+  if(n && n.trim()) prestarA(null, n.trim());
+}
+
+// =====================================================================
+//  PANTALLA PRINCIPAL: llaves fuera y personal
+// =====================================================================
+async function cargarEstado(){
+  if(!TOKEN) return;
+  const r = await rpc('terminal_estado', { p_token: TOKEN });
+  if(r.red){ pintarBanner(true); return; }
+  if(r.error){ console.warn(r.error); return; }
+  if(!r.data?.ok){ if(r.data?.error === 'terminal') terminalNoAutorizado(); return; }
+  ESTADO = r.data; LS.set('tc_estado', ESTADO);
+  pintarBanner(false);
+  pintarPrincipal();
+  if(pk) pintarPicker();
+}
+
+function pintarPrincipal(){
+  const fuera = ESTADO.fuera || [];
+  $('n-fuera').textContent = fuera.length;
+  $('lista-fuera').innerHTML = fuera.length ? fuera.map(f => {
+    const horas = (Date.now() - new Date(f.desde)) / 3600000;
+    const otroDia = !mismoDia(f.desde);
+    const cls = otroDia ? 'alerta' : horas >= 3 ? 'aviso' : '';
+    const cuando = otroDia ? `desde el ${fmtF(f.desde)}` : `desde las ${fmtH(f.desde)}`;
+    return `<div class="fila ${cls}"><div class="ico"><i class="ti ti-key"></i></div>
+      <div><div class="t1">${esc(f.llave)}</div><div class="t2">${esc(f.profesor)}</div></div>
+      <div class="hora">${cuando}${horas >= 1 && !otroDia ? `<br>hace ${Math.floor(horas)} h` : ''}</div></div>`;
+  }).join('') : '<div class="vacio"><i class="ti ti-circle-check" style="font-size:34px;color:var(--green);display:block;margin-bottom:6px"></i>Todas las llaves están en conserjería</div>';
+
+  const pers = ESTADO.personal || [];
+  const dentro = pers.filter(p => p.entrada && !p.salida).length;
+  $('n-dentro').textContent = dentro + ' / ' + pers.length;
+  $('chips-personal').innerHTML = pers.length ? pers.map(p => {
+    if(p.salida) return `<span class="chip fuera"><i class="ti ti-logout"></i>${esc(primerNombre(p.nombre))} ${fmtH(p.salida)}</span>`;
+    if(p.entrada) return `<span class="chip dentro"><i class="ti ti-login"></i>${esc(primerNombre(p.nombre))} ${fmtH(p.entrada)}</span>`;
+    return `<span class="chip"><i class="ti ti-clock"></i>${esc(primerNombre(p.nombre))}</span>`;
+  }).join('') : '<div class="vacio" style="padding:8px 0">Aún no hay llaveros asignados al personal</div>';
+}
+
+function pintarBanner(sinRed){
+  if(typeof sinRed === 'boolean') pintarBanner.sinRed = sinRed;
+  const n = COLA.length;
+  const ver = pintarBanner.sinRed || n > 0;
+  $('banner-red').classList.toggle('hidden', !ver);
+  $('banner-txt').textContent = pintarBanner.sinRed
+    ? 'Sin conexión' + (n ? ` · ${n} fichaje${n > 1 ? 's' : ''} pendiente${n > 1 ? 's' : ''}` : '')
+    : `Enviando ${n} fichaje${n > 1 ? 's' : ''}…`;
+}
+
+// Enviar los fichajes guardados sin conexión, en orden
+async function enviarCola(){
+  if(!TOKEN || !COLA.length) return;
+  while(COLA.length){
+    const it = COLA[0];
+    const r = await rpc('terminal_leer', { p_token: TOKEN, p_llavero: it.code, p_momento: it.at });
+    if(r.red){ pintarBanner(true); return; }
+    COLA.shift(); LS.set('tc_cola', COLA);
+  }
+  pintarBanner(false);
+  cargarEstado();
+}
+
+function reloj(){
+  const n = new Date();
+  $('reloj').textContent = n.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  $('fecha').textContent = n.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+// =====================================================================
+//  PIN (activar terminal / entrar en gestión)
+// =====================================================================
+let pinBuf = '', pinModo = '', ADMIN_PIN = null;
+function abrirPin(modo){
+  pinModo = modo; pinBuf = '';
+  $('pin-tit').textContent = modo === 'activar' ? 'Activar terminal' : 'Gestión';
+  $('pin-sub').textContent = 'PIN de administración (el de la app de limpieza)';
+  $('pin-err').textContent = '';
+  $('pin-teclado').innerHTML = [1,2,3,4,5,6,7,8,9].map(n => `<button onclick="pinTecla('${n}')">${n}</button>`).join('')
+    + `<button onclick="pinTecla('del')"><i class="ti ti-backspace"></i></button><button onclick="pinTecla('0')">0</button><button class="ok" onclick="pinTecla('ok')"><i class="ti ti-check"></i></button>`;
+  pintarPin();
+  $('pin').classList.remove('hidden');
+}
+function cerrarPin(){ $('pin').classList.add('hidden'); pinBuf = ''; }
+function pintarPin(){ $('pin-puntos').innerHTML = '<span></span>'.repeat(pinBuf.length); }
+function pinTecla(k){
+  if(k === 'del') pinBuf = pinBuf.slice(0, -1);
+  else if(k === 'ok') return pinOk();
+  else if(pinBuf.length < 8) pinBuf += k;
+  pintarPin();
+}
+document.addEventListener('keydown', e => {
+  if($('pin').classList.contains('hidden')) return;
+  if(/^[0-9]$/.test(e.key)) pinTecla(e.key);
+  else if(e.key === 'Backspace') pinTecla('del');
+  else if(e.key === 'Enter') { e.preventDefault(); pinTecla('ok'); }
+  else if(e.key === 'Escape') cerrarPin();
+});
+async function pinOk(){
+  if(!pinBuf) return;
+  const pin = pinBuf;
+  $('pin-err').textContent = 'Comprobando…';
+  if(pinModo === 'activar'){
+    const r = await rpc('terminal_activar', { p_pin: pin, p_nombre: 'Conserjería' });
+    if(r.error){ $('pin-err').textContent = r.red ? 'Sin conexión a internet' : (r.error.code === 'PGRST202' ? 'Falta ejecutar el SQL en Supabase' : 'Error: ' + r.error.message); return; }
+    if(!r.data?.ok){ $('pin-err').textContent = 'PIN incorrecto'; pinBuf = ''; pintarPin(); return; }
+    TOKEN = r.data.token; LS.set('tc_token', TOKEN);
+    cerrarPin(); $('setup').classList.add('hidden');
+    toast('Terminal activado ✓');
+    cargarEstado();
+  }else{
+    const r = await rpc('terminal_admin', { p_token: TOKEN, p_pin: pin, p_accion: 'login', p_datos: {} });
+    if(r.error){ $('pin-err').textContent = r.red ? 'Sin conexión a internet' : 'Error: ' + r.error.message; return; }
+    if(!r.data?.ok){
+      if(r.data?.error === 'terminal'){ cerrarPin(); terminalNoAutorizado(); return; }
+      $('pin-err').textContent = 'PIN incorrecto'; pinBuf = ''; pintarPin(); return;
+    }
+    ADMIN_PIN = pin; cerrarPin(); abrirAdmin();
+  }
+}
+
+function terminalNoAutorizado(){
+  TOKEN = null; LS.del('tc_token');
+  cerrarPicker(); cerrarRes(); cerrarAdmin();
+  $('setup').classList.remove('hidden');
+  $('setup-err').textContent = 'Este ordenador ya no está autorizado. Actívelo de nuevo.';
+}
+
+// =====================================================================
+//  GESTIÓN
+// =====================================================================
+let adminTab = 'personal', AD = null, adminT = null;
+function tocarAdmin(){ clearTimeout(adminT); adminT = setTimeout(() => { if(!$('admin').classList.contains('hidden')){ cerrarAdmin(); toast('Gestión cerrada por inactividad'); } }, T_ADMIN); }
+['pointerdown','keydown'].forEach(ev => document.addEventListener(ev, () => { if(ADMIN_PIN) tocarAdmin(); }, { passive: true }));
+
+async function abrirAdmin(){ $('admin').classList.remove('hidden'); tocarAdmin(); await cargarAdmin(); }
+function cerrarAdmin(){ $('admin').classList.add('hidden'); ADMIN_PIN = null; AD = null; clearTimeout(adminT); cerrarCaptura(); cargarEstado(); }
+
+async function admin(accion, datos = {}){
+  const r = await rpc('terminal_admin', { p_token: TOKEN, p_pin: ADMIN_PIN, p_accion: accion, p_datos: datos });
+  if(r.error){ toast(r.red ? 'Sin conexión a internet' : 'Error: ' + r.error.message, true); return null; }
+  if(!r.data?.ok){
+    if(r.data?.error === 'terminal'){ terminalNoAutorizado(); return null; }
+    if(r.data?.error === 'pin'){ toast('Sesión de gestión caducada', true); cerrarAdmin(); return null; }
+    toast('No se pudo guardar', true); return null;
+  }
+  return r.data;
+}
+async function cargarAdmin(){
+  $('ad-cuerpo').innerHTML = '<div class="vacio">Cargando…</div>';
+  const d = await admin('datos'); if(!d) return;
+  AD = d; pintarAdmin();
+}
+document.querySelectorAll('#ad-tabs .tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#ad-tabs .tab').forEach(x => x.classList.toggle('on', x === b));
+  adminTab = b.dataset.t; pintarAdmin();
+});
+
+function pintarAdmin(){
+  if(!AD) return;
+  const c = $('ad-cuerpo');
+  const tagLl = ll => ll ? `<span class="tag tag-ok"><i class="ti ti-nfc"></i>Asignado</span> <span class="mono">${esc(ll)}</span>` : '<span class="tag tag-no">Sin llavero</span>';
+
+  if(adminTab === 'personal'){
+    const sin = AD.trabajadores.filter(t => !t.llavero).length;
+    c.innerHTML = `<div class="ayuda"><i class="ti ti-info-circle"></i> Pulse <b>Asignar llavero</b> y acerque el llavero al lector. El llavero queda ligado a esa persona; si se pierde, asigne uno nuevo y el anterior deja de valer.
+      ${sin ? `<br><b>${sin}</b> persona${sin > 1 ? 's' : ''} sin llavero todavía.` : ''}</div>
+      <table class="tabla"><tr><th>Nombre</th><th>Llavero</th><th></th></tr>
+      ${AD.trabajadores.map(t => `<tr><td><b>${esc(t.nombre)}</b> ${t.baja ? '<span class="tag tag-am">De baja</span>' : ''}</td><td>${tagLl(t.llavero)}</td>
+        <td class="acc"><button class="btn btn-p btn-sm" onclick="pedirLlavero('trabajador','${t.id}')"><i class="ti ti-nfc"></i>${t.llavero ? 'Cambiar' : 'Asignar'} llavero</button>
+        ${t.llavero ? `<button class="btn btn-r btn-sm" onclick="quitarLlavero('trabajador','${t.id}')">Quitar</button>` : ''}</td></tr>`).join('')}
+      </table>`;
+  }
+
+  else if(adminTab === 'llaves'){
+    c.innerHTML = `<div class="barra-acc"><input id="nueva-llave" placeholder="Nombre de la llave (p. ej. Aula Althia)" onkeydown="if(event.key==='Enter')altaLlave()">
+        <button class="btn btn-p" onclick="altaLlave()"><i class="ti ti-plus"></i>Añadir llave</button></div>
+      <div class="ayuda"><i class="ti ti-info-circle"></i> Cuelgue un llavero en cada llave que se presta. Al añadirla, se le pedirá que lo acerque al lector.</div>
+      ${AD.llaves.length ? `<table class="tabla"><tr><th>Llave</th><th>Estado</th><th>Llavero</th><th></th></tr>
+      ${AD.llaves.map(k => `<tr class="${k.activa ? '' : 'inactivo'}"><td><b>${esc(k.nombre)}</b></td>
+        <td>${!k.activa ? '<span class="tag tag-no">Desactivada</span>' : k.prestada_a ? `<span class="tag tag-am"><i class="ti ti-arrow-up-right"></i>${esc(k.prestada_a)} · ${mismoDia(k.desde) ? fmtH(k.desde) : fmtF(k.desde)}</span>` : '<span class="tag tag-ok">En conserjería</span>'}</td>
+        <td>${tagLl(k.llavero)}</td>
+        <td class="acc">
+          ${k.prestada_a ? `<button class="btn btn-v btn-sm" onclick="devolverManual('${k.prestamo_id}','${esc(k.nombre).replace(/'/g,'')}')">Marcar devuelta</button>` : ''}
+          <button class="btn btn-p btn-sm" onclick="pedirLlavero('llave','${k.id}')"><i class="ti ti-nfc"></i>${k.llavero ? 'Cambiar' : 'Asignar'}</button>
+          <button class="btn btn-g btn-sm" onclick="renombrarLlave('${k.id}')"><i class="ti ti-pencil"></i></button>
+          <button class="btn ${k.activa ? 'btn-r' : 'btn-v'} btn-sm" onclick="activarLlave('${k.id}',${!k.activa})">${k.activa ? 'Desactivar' : 'Activar'}</button>
+        </td></tr>`).join('')}</table>` : '<div class="vacio">Todavía no hay llaves. Añada la primera arriba.</div>'}`;
+  }
+
+  else if(adminTab === 'profesores'){
+    c.innerHTML = `<div class="ayuda"><i class="ti ti-info-circle"></i> Pegue la lista del profesorado, <b>un nombre por línea</b> (por ejemplo, copiada de una columna de Excel). Los que ya existan no se duplican.</div>
+      <div class="barra-acc"><textarea id="imp-profes" placeholder="García López, Ana&#10;Martín Ruiz, Pedro&#10;…"></textarea>
+      <button class="btn btn-p" onclick="importarProfes()"><i class="ti ti-upload"></i>Añadir a la lista</button>
+      <span style="flex:1"></span><input id="f-profes" placeholder="Buscar…" oninput="pintarListaProfes()" style="min-width:220px"></div>
+      <div id="lista-profes"></div>`;
+    pintarListaProfes();
+  }
+
+  else if(adminTab === 'historial'){
+    const h = AD.historial || [];
+    c.innerHTML = `<div class="ayuda"><i class="ti ti-info-circle"></i> Préstamos de llaves de los últimos 30 días.</div>
+      ${h.length ? `<table class="tabla"><tr><th>Llave</th><th>Quién</th><th>Salió</th><th>Volvió</th></tr>
+      ${h.map(x => `<tr><td><b>${esc(x.llave)}</b></td><td>${esc(x.profesor)}</td><td>${fmtF(x.desde)} ${fmtH(x.desde)}</td>
+        <td>${x.hasta ? `${fmtF(x.hasta)} ${fmtH(x.hasta)}${x.manual ? ' <span class="tag tag-am">a mano</span>' : ''}` : '<span class="tag tag-am">Sin devolver</span>'}</td></tr>`).join('')}</table>`
+        : '<div class="vacio">Sin préstamos en los últimos 30 días.</div>'}`;
+  }
+
+  else if(adminTab === 'lector'){
+    c.innerHTML = `<div class="ayuda"><i class="ti ti-info-circle"></i> Acerque cualquier llavero al lector: aquí verá el número que lee. Si no aparece nada, revise que el lector esté enchufado y que esta ventana esté activa (haga clic en ella).</div>
+      <div style="text-align:center;padding:20px">
+        <div style="color:var(--gray);font-weight:700">ÚLTIMA LECTURA</div>
+        <div class="prueba">${ultimaPrueba ? esc(ultimaPrueba) : '—'}</div>
+        <div style="color:var(--gray)">${ultimaPrueba ? ultimaPrueba.length + ' caracteres' : 'Esperando llavero…'}</div>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--line);margin:20px 0">
+      <div class="barra-acc"><button class="btn btn-r" onclick="desactivarTerminal()"><i class="ti ti-device-desktop-off"></i>Desactivar este ordenador</button>
+      <span style="color:var(--gray);font-size:14px">Úselo si cambia de ordenador o lo retira. Habrá que activarlo de nuevo con el PIN.</span></div>`;
+  }
+}
+
+function pintarListaProfes(){
+  const q = normal(($('f-profes')?.value || '').trim());
+  const l = AD.profesores.filter(p => !q || normal(p.nombre).includes(q));
+  const act = AD.profesores.filter(p => p.activo).length;
+  $('lista-profes').innerHTML = AD.profesores.length ? `<div style="color:var(--gray);font-weight:700;margin-bottom:6px">${act} activos</div>
+    <table class="tabla">${l.map(p => `<tr class="${p.activo ? '' : 'inactivo'}"><td><b>${esc(p.nombre)}</b></td>
+      <td class="acc"><button class="btn btn-g btn-sm" onclick="renombrarProfe('${p.id}')"><i class="ti ti-pencil"></i></button>
+      <button class="btn ${p.activo ? 'btn-r' : 'btn-v'} btn-sm" onclick="activarProfe('${p.id}',${!p.activo})">${p.activo ? 'Quitar' : 'Recuperar'}</button></td></tr>`).join('')}</table>`
+    : '<div class="vacio">Todavía no hay profesores. Pegue la lista arriba.</div>';
+}
+
+// ---------- Asignar llavero ----------
+let capDestino = null;
+function pedirLlavero(destino, id){
+  const lista = destino === 'trabajador' ? AD.trabajadores : AD.llaves;
+  const x = lista.find(i => i.id === id);
+  capDestino = { destino, id, nombre: x?.nombre || '' };
+  $('cap-para').innerHTML = (destino === 'trabajador' ? 'Llavero personal de <b>' : 'Llavero de la llave <b>') + esc(capDestino.nombre) + '</b>';
+  $('cap-manual').value = '';
+  $('captura').classList.remove('hidden');
+}
+function cerrarCaptura(){ $('captura').classList.add('hidden'); capDestino = null; }
+function capturaManual(){ const v = $('cap-manual').value.trim().toUpperCase(); if(v.length >= 4) capturaRecibida(v); }
+async function capturaRecibida(code){
+  if(!capDestino) return;
+  const dst = capDestino;
+  // ¿Ya lo tenía otra persona o llave?
+  const otroT = AD.trabajadores.find(t => t.llavero === code && t.id !== dst.id);
+  const otroK = AD.llaves.find(k => k.llavero === code && k.id !== dst.id);
+  const otro = otroT || otroK;
+  if(otro && !confirm(`Ese llavero ya estaba asignado a "${otro.nombre}". ¿Pasarlo a "${dst.nombre}"?`)) return;
+  const r = await admin('asignar_llavero', { destino: dst.destino, id: dst.id, llavero: code });
+  if(!r) return;
+  pitido('ok'); cerrarCaptura(); toast('Llavero asignado a ' + dst.nombre + ' ✓');
+  await cargarAdmin();
+}
+async function quitarLlavero(destino, id){
+  if(!confirm('¿Quitar el llavero? Dejará de servir hasta que se asigne otro.')) return;
+  if(await admin('quitar_llavero', { destino, id })) cargarAdmin();
+}
+
+// ---------- Llaves ----------
+async function altaLlave(){
+  const n = $('nueva-llave').value.trim();
+  if(!n) return;
+  const r = await admin('alta_llave', { nombre: n }); if(!r) return;
+  await cargarAdmin();
+  pedirLlavero('llave', r.id);
+}
+async function renombrarLlave(id){
+  const k = AD.llaves.find(x => x.id === id);
+  const n = prompt('Nuevo nombre de la llave:', k?.nombre || '');
+  if(n && n.trim() && await admin('editar_llave', { id, nombre: n.trim() })) cargarAdmin();
+}
+async function activarLlave(id, activa){ if(await admin('editar_llave', { id, activa })) cargarAdmin(); }
+async function devolverManual(prestamoId, nombre){
+  if(!confirm(`¿Marcar "${nombre}" como devuelta?`)) return;
+  if(await admin('devolver', { id: prestamoId })) cargarAdmin();
+}
+
+// ---------- Profesores ----------
+async function importarProfes(){
+  const nombres = $('imp-profes').value.split(/\r?\n/).map(s => s.replace(/\t/g, ' ').trim()).filter(Boolean);
+  if(!nombres.length) return;
+  const r = await admin('importar_profesores', { nombres }); if(!r) return;
+  toast(r.nuevos ? `${r.nuevos} profesor${r.nuevos > 1 ? 'es' : ''} añadido${r.nuevos > 1 ? 's' : ''} ✓` : 'Ya estaban todos en la lista');
+  await cargarAdmin();
+}
+async function renombrarProfe(id){
+  const p = AD.profesores.find(x => x.id === id);
+  const n = prompt('Nombre:', p?.nombre || '');
+  if(n && n.trim() && await admin('editar_profesor', { id, nombre: n.trim() })) cargarAdmin();
+}
+async function activarProfe(id, activo){ if(await admin('editar_profesor', { id, activo })) cargarAdmin(); }
+
+async function desactivarTerminal(){
+  if(!confirm('¿Desactivar este ordenador como terminal? Dejará de fichar hasta que se active de nuevo.')) return;
+  if(await admin('desactivar_terminal')) terminalNoAutorizado();
+}
+
+// =====================================================================
+//  ARRANQUE
+// =====================================================================
+reloj(); setInterval(reloj, 1000);
+pintarPrincipal(); pintarBanner(false);
+if(!TOKEN) $('setup').classList.remove('hidden');
+else { cargarEstado(); enviarCola(); }
+setInterval(cargarEstado, 30000);
+setInterval(enviarCola, 20000);
+window.addEventListener('online', () => { enviarCola(); cargarEstado(); });
+// Mantener el foco en la página para que el lector siempre "escriba" aquí
+window.addEventListener('blur', () => setTimeout(() => window.focus(), 200));
+</script>
+</body>
+</html>
