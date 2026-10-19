@@ -519,15 +519,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         <button onclick="exportarFichajesPDF()" style="width:100%;padding:12px;margin-bottom:8px;background:var(--blue-m);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer">
           <i class="ti ti-file-type-pdf"></i> Descargar informe del mes
         </button>
-        <button onclick="etiquetaFichaje()" style="width:100%;padding:12px;margin-bottom:10px;background:var(--green);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer">
-          <i class="ti ti-qrcode"></i> Imprimir cartel de fichaje
-        </button>
-        <div style="background:var(--blue-l);border:1.5px solid var(--blue-m);border-radius:10px;padding:11px;margin-bottom:14px;font-size:12px;color:var(--blue-m);line-height:1.5">
-          📱 Cada móvil queda vinculado a una persona la primera vez que ficha. Si alguien cambia de teléfono, debe pulsar aquí <strong>en ese móvil</strong>:
-          <button onclick="liberarDispositivo()" style="display:block;width:100%;margin-top:8px;padding:9px;background:#fff;border:1.5px solid var(--blue-m);border-radius:8px;font-size:12px;font-weight:800;color:var(--blue-m);cursor:pointer">
-            <i class="ti ti-device-mobile"></i> Liberar este móvil
-          </button>
-        </div>
         <div id="fi-resumen" style="margin-bottom:14px"></div>
         <div id="fi-list"></div>
       </div>
@@ -1081,16 +1072,8 @@ async function initApp(){
   // ¿La app se abrió tocando una tarjeta NFC? (URL con ?dep=ID)
   try{ const dp=new URLSearchParams(location.search).get('dep'); if(dp) pendingNfcDep=dp; }catch(_){}
 
-  // ¿Tarjeta de FICHAJE? (URL con ?fichar=1)
-  let esFichaje=false;
-  try{ esFichaje=new URLSearchParams(location.search).get('fichar')==='1'; }catch(_){}
-  if(esFichaje){
-    try{ history.replaceState({},'',location.origin+location.pathname); }catch(_){}
-    renderWorkers();
-    renderPanel();
-    pantallaFichaje();
-    return;
-  }
+  // Enlaces antiguos de fichaje (?fichar=1): ya no fichan, solo se limpia la URL
+  try{ if(new URLSearchParams(location.search).get('fichar')==='1') history.replaceState({},'',location.origin+location.pathname); }catch(_){}
 
   // Si viene de NFC, mostrar pantalla especial de selección rápida
   if(pendingNfcDep){
@@ -1829,7 +1812,7 @@ function renderDetail(){
   // ── PIE: MENSAJES + FINALIZAR ────────────────────────────────
   h+=`<div style="background:var(--gray-l);border:1.5px solid var(--gray-b);border-radius:12px;padding:13px;text-align:center;font-size:13px;color:var(--gray);line-height:1.5">
     <i class="ti ti-clock-hour-9" style="font-size:20px;color:var(--gray);display:block;margin-bottom:5px"></i>
-    Para terminar tu jornada, escanea el código de <strong>FICHAR</strong> en las taquillas.
+    Al terminar tu jornada, ficha la <strong>SALIDA</strong> en <strong>conserjería</strong> pasando tu llavero.
   </div>`;
 
   document.getElementById('worker-detail').innerHTML=h;
@@ -2299,7 +2282,7 @@ function _rutaNFC(cod){
   if(document.getElementById('adm-ov')?.style.display==='flex'){ return; }
 
   // Tarjeta de FICHAR: siempre manda
-  if(cod==='__FICHAJE__'){ procesarFichajeLeido('NFC'); return; }
+  if(cod==='__FICHAJE__'){ toast('El fichaje se hace en CONSERJERÍA con tu llavero',true); return; }
 
   // Si está rellenando el checklist, no interrumpir
   if(modalOpen){ toast('Termina primero la lista de tareas',true); return; }
@@ -2438,7 +2421,7 @@ function scanFrame(){
     const img=_qrCtx.getImageData(0,0,c.width,c.height);
     const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
     if(code && (code.data.includes('fichar=1')||code.data==='IES_FICHAJE')){
-      procesarFichajeLeido('QR');
+      toast('El fichaje se hace en CONSERJERÍA con tu llavero',true);
       return;
     }
     if(code && code.data.startsWith('IES_DEP_')){
@@ -4705,8 +4688,7 @@ async function procesarPinPers(){
     }catch(e){ console.warn('RPC verificar_pin no disponible',e); }
     if(pinOk){
       document.getElementById('pinpers-ov').style.display='none';
-      if(fichajeWorker){ const w=fichajeWorker; fichajeWorker=null; _ficharConfirmado(w); }
-      else if(nfcPinPendiente) _nfcContinuar(ppTargetWorker);
+      if(nfcPinPendiente) _nfcContinuar(ppTargetWorker);
       else _entrarComoTrabajador(ppTargetWorker);
     } else {
       document.getElementById('pperr').textContent='❌ PIN incorrecto';
@@ -4723,8 +4705,7 @@ async function procesarPinPers(){
       if(ePin){ console.error(ePin); document.getElementById('pperr').textContent='No se pudo guardar. Revisa la conexión.'; return; }
       document.getElementById('pinpers-ov').style.display='none';
       toast('PIN creado ✓');
-      if(fichajeWorker){ const w=fichajeWorker; fichajeWorker=null; _ficharConfirmado(w); }
-      else if(nfcPinPendiente) _nfcContinuar(ppTargetWorker);
+      if(nfcPinPendiente) _nfcContinuar(ppTargetWorker);
       else _entrarComoTrabajador(ppTargetWorker);
     } else {
       document.getElementById('pperr').textContent='❌ No coinciden. Vuelve a empezar.';
@@ -5014,512 +4995,17 @@ async function comprobarFichajeYArrancar(){
     </div>
     <div style="font-size:19px;font-weight:900;margin-bottom:8px">Primero tienes que fichar</div>
     <div style="font-size:15px;color:var(--gray);line-height:1.55;margin-bottom:18px">
-      Ve al cuarto de taquillas y <strong style="color:var(--text)">acerca el móvil a la tarjeta</strong>
-      (o escanea el QR) para fichar tu entrada.
+      Ve a <strong style="color:var(--text)">conserjería</strong> y pasa tu <strong style="color:var(--text)">llavero</strong> por el lector para fichar la entrada.
     </div>
     <div style="background:var(--amber-l);border:1.5px solid var(--amber);border-radius:12px;padding:12px;font-size:13px;color:var(--amber);font-weight:700;line-height:1.5">
       Hasta que no fiches no puedes empezar a limpiar.
     </div>
-    <button onclick="abrirScannerFichaje()" style="width:100%;margin-top:16px;padding:20px;background:var(--blue-m);color:#fff;border:none;border-radius:16px;font-size:19px;font-weight:900;cursor:pointer;box-shadow:0 6px 20px rgba(45,107,228,.35);display:flex;align-items:center;justify-content:center;gap:11px">
-      <i class="ti ti-qrcode" style="font-size:26px"></i> FICHAR ENTRADA
+    <button onclick="comprobarFichajeYArrancar()" style="width:100%;margin-top:16px;padding:20px;background:var(--blue-m);color:#fff;border:none;border-radius:16px;font-size:19px;font-weight:900;cursor:pointer;box-shadow:0 6px 20px rgba(45,107,228,.35);display:flex;align-items:center;justify-content:center;gap:11px">
+      <i class="ti ti-refresh" style="font-size:26px"></i> YA HE FICHADO
     </button>`;
 }
 
-// Abre el escáner esperando el código de fichaje
-function abrirScannerFichaje(){
-  depAEscanear=null; depASalir=null;
-  const sub=document.getElementById('sc-modo-salida');
-  const ent=document.getElementById('sc-modo-entrada');
-  if(sub) sub.style.display='none';
-  if(ent) ent.style.display='block';
-  const t=document.getElementById('sc-target-name');
-  if(t) t.textContent='Código de FICHAR (taquillas)';
-  _avisoNFCdispositivo();
-  document.getElementById('sc-ov').style.display='flex';
-  startQRCam();
-  startNFCScan();
-}
-
-// Se ha leído el código de FICHAJE dentro del escáner (con el trabajador ya dentro).
-// Decide solo si toca entrada o salida.
-async function procesarFichajeLeido(tipo){
-  if(!selW){ toast('Identifícate primero',true); return; }
-
-  stopQRCam();
-  document.getElementById('sc-ov').style.display='none';
-  depAEscanear=null; depASalir=null;
-  const sub=document.getElementById('sc-modo-salida');
-  const ent=document.getElementById('sc-modo-entrada');
-  if(sub) sub.style.display='none';
-  if(ent) ent.style.display='none';
-
-  const hoy=new Date().toISOString().split('T')[0];
-  const ahora=new Date().toISOString();
-  const disp=_idDispositivo();
-
-  // Este móvil debe ser el del trabajador identificado. Si es de otro, no fichar.
-  const chk=_puedeFicharEnEsteMovil(selW.id);
-  if(!chk.ok){ mostrarErrorDispositivo(selW, chk.duenyo); return; }
-
-  // Traer los fichajes de hoy. Usamos una lista (no maybeSingle) porque si
-  // hubiera filas duplicadas del mismo día, maybeSingle lanza error y se
-  // acababa creando OTRO registro. Con la lista cogemos siempre el más antiguo
-  // (la entrada real) y seguimos funcionando.
-  let existente=null;
-  {
-    const {data:filas,error:eSel}=await sb.from('limpieza_fichajes')
-      .select('*').eq('trabajador_id',selW.id).eq('fecha',hoy)
-      .order('hora_entrada',{ascending:true});
-    if(eSel){ console.error(eSel); toast('⚠️ Error de conexión. Inténtalo de nuevo.',true); return; }
-    if(filas && filas.length){
-      existente=filas[0];
-      if(filas.length>1) console.warn('⚠️ Hay',filas.length,'fichajes para',selW.name,'el',hoy,'— usando el primero');
-    }
-  }
-
-  // ── ENTRADA ──
-  if(!existente){
-    // El móvil se vincula AQUÍ, solo al fichar la propia entrada.
-    _vincularMovil(selW.id);
-    const {error}=await sb.from('limpieza_fichajes').insert({
-      trabajador_id:selW.id, fecha:hoy, hora_entrada:ahora, dispositivo:disp
-    });
-    if(error){ console.error(error); toast('⚠️ No se pudo fichar. Avisa a secretaría.',true); return; }
-    if(navigator.vibrate) navigator.vibrate(180);
-    await startJornada();
-    const hora=new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});
-    mostrarPantallaFichado('entrada', hora, `¡Buena jornada, ${selW.name.split(' ')[0]}!`);
-    return;
-  }
-
-  // ── SALIDA (cierra también la jornada) ──
-  if(!existente.hora_salida){
-    // Respaldo anti-suplantación: si la entrada se fichó desde OTRO móvil,
-    // no dejar cerrar desde este (cubre el caso de caché borrada).
-    if(existente.dispositivo && existente.dispositivo!==disp){
-      toast('⚠️ La entrada se fichó desde otro móvil. Cierra la jornada desde ese mismo teléfono.',true);
-      renderDetail();
-      return;
-    }
-    // Si tiene una estancia a medias, avisar y no cerrar
-    const enCurso=getDepEnCurso();
-    if(enCurso){
-      toast(`⚠️ Termina primero "${enCurso.dep.name}"`,true);
-      renderDetail();
-      return;
-    }
-    const {error}=await sb.from('limpieza_fichajes')
-      .update({hora_salida:ahora}).eq('id',existente.id);
-    if(error){ console.error(error); toast('⚠️ No se pudo fichar la salida. Avisa a secretaría.',true); return; }
-
-    // Cerrar la jornada de limpieza
-    await sb.from('limpieza_jornadas')
-      .update({hora_fin:ahora}).eq('trabajador_id',selW.id).eq('fecha',hoy);
-    if(S.todayLog[selW.id]) S.todayLog[selW.id].end=Date.now();
-
-    if(navigator.vibrate) navigator.vibrate(180);
-    const mins=Math.round((new Date()-new Date(existente.hora_entrada))/60000);
-    const hora=new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});
-    mostrarPantallaFichado('salida', hora, `Has trabajado ${Math.floor(mins/60)}h ${String(mins%60).padStart(2,'0')}min`);
-    return;
-  }
-
-  // Ya había fichado la salida
-  if(navigator.vibrate) navigator.vibrate([80,60,80]);
-  mostrarPantallaFichado('repetido','','Ya habías fichado la salida hoy');
-}
-
-// Pantalla de confirmación tras fichar desde el escáner
-function mostrarPantallaFichado(tipo, hora, mensaje){
-  const esEntrada=tipo==='entrada';
-  const col=tipo==='repetido'?'var(--amber)':esEntrada?'var(--green)':'var(--blue-m)';
-  const icono=tipo==='repetido'?'ti-alert-circle':esEntrada?'ti-login':'ti-logout';
-  const titulo=tipo==='repetido'?'YA FICHADO':esEntrada?'ENTRADA':'SALIDA';
-  const sec=selW?getSectorForWorker(selW):null;
-  const sector=sec?sec.name:'';
-
-  const det=document.getElementById('worker-detail');
-  det.style.display='flex';
-  det.innerHTML=`
-    <div style="text-align:center;padding:36px 20px">
-      <div style="width:100px;height:100px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 8px 28px ${col}55">
-        <i class="ti ${icono}" style="font-size:52px;color:#fff"></i>
-      </div>
-      <div style="font-size:13px;font-weight:800;color:${col};letter-spacing:1.5px;margin-bottom:5px">${titulo}</div>
-      <div style="font-size:24px;font-weight:900;margin-bottom:3px">${selW.name}</div>
-      ${sector?`<div style="font-size:14px;color:var(--gray)">${sector}</div>`:''}
-      ${hora?`<div style="font-size:12px;font-weight:800;color:var(--gray);letter-spacing:.9px;margin-top:10px">${esEntrada?'HORA DE ENTRADA':'HORA DE SALIDA'}</div>
-              <div style="font-size:46px;font-weight:900;color:${col};margin:2px 0 10px;line-height:1">${hora}</div>`:''}
-      <div style="font-size:17px;color:var(--text);font-weight:800;margin-bottom:6px">${mensaje}</div>
-      ${esEntrada
-        ? `<div data-fichado="1" style="font-size:15px;color:var(--gray);line-height:1.5;margin-bottom:26px">Que tengas un buen día de trabajo 💪</div>
-           <button onclick="renderDetail()" style="width:100%;padding:15px;background:var(--gray-l);border:1.5px solid var(--gray-b);border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;color:var(--gray)">
-             Continuar
-           </button>`
-        : `<div style="height:22px"></div>
-           <button onclick="backToWho()" style="width:100%;padding:16px;background:var(--gray-l);border:1.5px solid var(--gray-b);border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;color:var(--text)">
-             Cerrar
-           </button>`}
-    </div>`;
-
-  // Tras fichar la entrada pasa sola a la pantalla de trabajo (sin pulsar nada)
-  if(esEntrada) setTimeout(()=>{ if(document.querySelector('[data-fichado="1"]')) renderDetail(); },5000);
-}
-
-// ============ FICHAJE HORARIO ============
-// Se ficha tocando la tarjeta NFC del cuarto de taquillas.
-// La misma tarjeta sirve para entrar y para salir.
-let fichajeWorker=null;
-
-async function pantallaFichaje(){
-  document.getElementById('who-card').style.display='block';
-  document.getElementById('worker-detail').style.display='none';
-
-  const hoy=new Date().toISOString().split('T')[0];
-  // Traer los fichajes de hoy para saber quién está dentro
-  let fichajesHoy=[];
-  try{
-    const {data}=await sb.from('limpieza_fichajes').select('*').eq('fecha',hoy);
-    fichajesHoy=data||[];
-  }catch(e){ console.warn('No se pudieron cargar los fichajes',e); }
-
-  const grid=document.getElementById('wgrid');
-  const activos=S.workers.filter(w=>!w.baja);
-
-  grid.innerHTML=`
-    <div style="grid-column:1/-1;background:var(--blue-m);border-radius:18px;padding:22px 16px;text-align:center;margin-bottom:4px">
-      <i class="ti ti-clock-hour-4" style="font-size:42px;color:#fff;display:block;margin-bottom:10px"></i>
-      <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:3px">Fichar</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.8)">${new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}</div>
-      <div style="font-size:28px;font-weight:900;color:#fff;margin-top:6px">${new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})}</div>
-    </div>
-    ${activos.map(w=>{
-      const f=fichajesHoy.find(x=>x.trabajador_id===w.id);
-      const dentro=f&&f.hora_entrada&&!f.hora_salida;
-      const salido=f&&f.hora_salida;
-      let etiqueta='', col='var(--gray-b)', bg='#fff';
-      if(dentro){ etiqueta='● Dentro desde '+new Date(f.hora_entrada).toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}); col='var(--green)'; bg='var(--green-l)'; }
-      else if(salido){ etiqueta='✓ Jornada cerrada'; col='var(--gray)'; bg='var(--gray-l)'; }
-      else { etiqueta='Toca para entrar'; }
-      return `<button onclick="ficharComo('${w.id}')" ${salido?'disabled':''}
-        style="background:${bg};border:2.5px solid ${col};border-radius:16px;padding:16px 8px;cursor:${salido?'default':'pointer'};display:flex;flex-direction:column;align-items:center;gap:7px;font-family:inherit;opacity:${salido?'.55':'1'}">
-        <div class="av c${w.ci}" style="width:54px;height:54px;font-size:19px">${ini(w.name)}</div>
-        <div style="font-size:14px;font-weight:800;color:var(--text);text-align:center;line-height:1.2">${w.name.split(' ')[0]}</div>
-        <div style="font-size:10px;font-weight:700;color:${col};text-align:center;line-height:1.3">${etiqueta}</div>
-      </button>`;
-    }).join('')}
-    <div style="grid-column:1/-1">
-      <button onclick="cancelarFichaje()" style="width:100%;padding:12px;background:var(--gray-l);border:1.5px solid var(--gray-b);border-radius:12px;font-size:14px;font-weight:700;color:var(--gray);cursor:pointer">
-        <i class="ti ti-x"></i> Cancelar
-      </button>
-    </div>`;
-}
-
-// ============ VINCULACIÓN DE MÓVIL A TRABAJADOR ============
-// Regla única (misma en las dos formas de fichar):
-//   • El PRIMER móvil que ficha por un trabajador queda registrado como el suyo.
-//   • A partir de ahí, ESE trabajador solo puede fichar desde ESE móvil.
-//   • Y ESE móvil solo puede fichar por ESE trabajador (no vale prestárselo).
-// Se guardan dos datos en el propio móvil (localStorage):
-//   - ies_disp_id   : identificador físico de este teléfono (huella del aparato)
-//   - ies_disp_trab : id del trabajador dueño de este teléfono
-// Para "romper" el vínculo (cambio de móvil averiado, etc.) está el botón
-// "Liberar este móvil" en Admin, que borra ies_disp_trab.
-
-// Identificador único de este móvil (se genera una sola vez y no cambia)
-function _idDispositivo(){
-  let id=localStorage.getItem('ies_disp_id');
-  if(!id){
-    id='D'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
-    localStorage.setItem('ies_disp_id',id);
-  }
-  return id;
-}
-
-// Comprueba si este móvil puede fichar por `wid`.
-// Devuelve {ok:true} si puede, o {ok:false, duenyo} si el móvil es de otro.
-function _puedeFicharEnEsteMovil(wid){
-  const duenyo=localStorage.getItem('ies_disp_trab');
-  if(duenyo && duenyo!==wid){
-    return {ok:false, duenyo:S.workers.find(x=>x.id===duenyo)||null};
-  }
-  return {ok:true};
-}
-
-// Registra el vínculo la PRIMERA vez que este móvil ficha por alguien.
-// Si ya estaba vinculado a esa misma persona, no hace nada.
-function _vincularMovil(wid){
-  const actual=localStorage.getItem('ies_disp_trab');
-  if(!actual){
-    localStorage.setItem('ies_disp_trab', wid);
-    _idDispositivo(); // asegura que el móvil tiene su huella creada
-    return true;      // vínculo nuevo
-  }
-  return false;       // ya estaba vinculado
-}
-
-
-// Al elegir su nombre, comprobar que este móvil es suyo y pedir el PIN
-function ficharComo(wid){
-  const w=S.workers.find(x=>x.id===wid);
-  if(!w) return;
-
-  // ¿Este móvil ya está vinculado a otra persona?
-  const chk=_puedeFicharEnEsteMovil(wid);
-  if(!chk.ok){
-    mostrarErrorDispositivo(w, chk.duenyo);
-    return;
-  }
-
-  fichajeWorker=w;
-  iniciarLoginTrabajador(w);
-}
-
-// Aviso cuando se intenta fichar por otra persona desde este móvil
-function mostrarErrorDispositivo(intentado, duenyo){
-  document.getElementById('who-card').style.display='none';
-  const det=document.getElementById('worker-detail');
-  det.style.display='flex';
-  // ¿Hay una jornada en curso de esta persona? (para no asustar: su trabajo sigue)
-  const enJornada = selW && selW.id===intentado.id;
-  det.innerHTML=`
-    <div style="text-align:center;padding:36px 20px">
-      <div style="width:96px;height:96px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 8px 28px rgba(239,68,68,.4)">
-        <i class="ti ti-device-mobile-off" style="font-size:48px;color:#fff"></i>
-      </div>
-      <div style="font-size:13px;font-weight:800;color:var(--red);letter-spacing:1.5px;margin-bottom:6px">MÓVIL NO VÁLIDO</div>
-      <div style="font-size:20px;font-weight:900;margin-bottom:10px">Este móvil no puede fichar por ${intentado.name.split(' ')[0]}</div>
-      <div style="font-size:15px;color:var(--gray);margin-bottom:8px;line-height:1.5">
-        Este teléfono está registrado a nombre de<br><strong style="color:var(--text)">${duenyo?duenyo.name:'otra persona'}</strong>.
-      </div>
-      <div style="font-size:14px;color:var(--gray);margin-bottom:18px;line-height:1.5">
-        Cada persona debe fichar con su propio teléfono.
-      </div>
-      <div style="background:var(--green-l);border:1.5px solid var(--green);border-radius:12px;padding:12px 14px;margin-bottom:22px;font-size:13px;color:#166534;line-height:1.5">
-        ✅ Tranquila: el trabajo y las estancias ya limpiadas <strong>quedan guardados</strong>. Ficha la salida en tu propio móvil.
-      </div>
-      <button onclick="cancelarFichaje()" style="width:100%;padding:16px;background:var(--gray-l);border:1.5px solid var(--gray-b);border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;color:var(--text)">
-        Entendido
-      </button>
-    </div>`;
-  if(navigator.vibrate) navigator.vibrate([100,70,100,70,100]);
-}
-
-// Registra el fichaje una vez validado el PIN
-async function _ficharConfirmado(worker){
-  const hoy=new Date().toISOString().split('T')[0];
-  const ahora=new Date().toISOString();
-  const disp=_idDispositivo();
-
-  // Seguridad: si el móvil es de otra persona, no dejar fichar (por si se
-  // llegara aquí sin pasar por ficharComo)
-  const chk=_puedeFicharEnEsteMovil(worker.id);
-  if(!chk.ok){ mostrarErrorDispositivo(worker, chk.duenyo); return; }
-
-  // Traer los fichajes de hoy como lista (no maybeSingle) para tolerar
-  // posibles duplicados sin romper ni crear registros nuevos.
-  let existente=null;
-  {
-    const {data:filas,error:eSel}=await sb.from('limpieza_fichajes')
-      .select('*').eq('trabajador_id',worker.id).eq('fecha',hoy)
-      .order('hora_entrada',{ascending:true});
-    if(eSel){ console.error(eSel); toast('⚠️ Error de conexión. Inténtalo de nuevo.',true); return; }
-    if(filas && filas.length){
-      existente=filas[0];
-      if(filas.length>1) console.warn('⚠️ Hay',filas.length,'fichajes para',worker.name,'el',hoy,'— usando el primero');
-    }
-  }
-
-  let mensaje='', tipo='entrada', hora='';
-
-  if(!existente){
-    // ENTRADA — el móvil se vincula AQUÍ, solo al fichar la propia entrada.
-    // (Así un móvil libre no se queda "pillado" por un intento de salida ajeno.)
-    _vincularMovil(worker.id);
-    const {error}=await sb.from('limpieza_fichajes').insert({
-      trabajador_id:worker.id, fecha:hoy, hora_entrada:ahora, dispositivo:disp
-    });
-    if(error){
-      console.error(error);
-      toast('⚠️ No se pudo fichar la entrada. Avisa a secretaría.',true);
-      return;
-    }
-    selW=worker;
-    await startJornada();   // fichar la entrada inicia la jornada
-    tipo='entrada';
-    hora=new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});
-    mensaje=`¡Buena jornada, ${worker.name.split(' ')[0]}!`;
-  } else if(!existente.hora_salida){
-    // SALIDA
-    // Respaldo anti-suplantación: si la entrada se fichó desde OTRO móvil,
-    // no dejar cerrar desde este.
-    if(existente.dispositivo && existente.dispositivo!==disp){
-      toast('⚠️ La entrada se fichó desde otro móvil. Cierra la jornada desde ese mismo teléfono.',true);
-      return;
-    }
-    const {error}=await sb.from('limpieza_fichajes')
-      .update({hora_salida:ahora}).eq('id',existente.id);
-    if(error){
-      console.error(error);
-      toast('⚠️ No se pudo fichar la salida. Avisa a secretaría.',true);
-      return;
-    }
-    // Cerrar también la jornada de limpieza
-    await sb.from('limpieza_jornadas')
-      .update({hora_fin:ahora}).eq('trabajador_id',worker.id).eq('fecha',hoy);
-    if(S.todayLog[worker.id]) S.todayLog[worker.id].end=Date.now();
-    tipo='salida';
-    hora=new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});
-    const mins=Math.round((new Date()-new Date(existente.hora_entrada))/60000);
-    const h=Math.floor(mins/60), m=mins%60;
-    mensaje=`Has trabajado ${h}h ${m}min`;
-  } else {
-    tipo='repetido';
-    mensaje='Ya has fichado la salida hoy';
-  }
-
-  const sec = getSectorForWorker(worker);
-  const secName = sec ? sec.name : '';
-
-  mostrarConfirmacionFichaje(worker, tipo, hora, mensaje, secName);
-}
-
-function mostrarConfirmacionFichaje(worker, tipo, hora, mensaje, sector){
-  const esEntrada=tipo==='entrada';
-  const col=tipo==='repetido'?'var(--amber)':esEntrada?'var(--green)':'var(--blue-m)';
-  const icono=tipo==='repetido'?'ti-alert-circle':esEntrada?'ti-login':'ti-logout';
-  const titulo=tipo==='repetido'?'Ya fichaste':esEntrada?'ENTRADA':'SALIDA';
-
-  document.getElementById('who-card').style.display='none';
-  const det=document.getElementById('worker-detail');
-  det.style.display='flex';
-  det.innerHTML=`
-    <div style="text-align:center;padding:36px 20px">
-      <div style="width:100px;height:100px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 8px 28px ${col}55">
-        <i class="ti ${icono}" style="font-size:52px;color:#fff"></i>
-      </div>
-      <div style="font-size:13px;font-weight:800;color:${col};letter-spacing:1.5px;margin-bottom:5px">${titulo}</div>
-      <div style="font-size:26px;font-weight:900;margin-bottom:3px">${worker.name}</div>
-      ${sector?`<div style="font-size:14px;color:var(--gray)">${sector}</div>`:''}
-      ${hora?`<div style="font-size:12px;font-weight:800;color:var(--gray);letter-spacing:.9px;margin-top:10px">${esEntrada?'HORA DE ENTRADA':'HORA DE SALIDA'}</div>
-              <div style="font-size:46px;font-weight:900;color:${col};margin:2px 0 10px;line-height:1">${hora}</div>`:''}
-      <div style="font-size:17px;color:var(--text);font-weight:800;margin-bottom:6px">${mensaje}</div>
-      ${esEntrada
-        ? `<div data-fichado-2="1" style="font-size:15px;color:var(--gray);line-height:1.5;margin-bottom:26px">Que tengas un buen día de trabajo 💪</div>
-           <button onclick="_irALimpiar('${worker.id}')" style="width:100%;padding:15px;background:var(--gray-l);border:1.5px solid var(--gray-b);border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;color:var(--gray)">
-             Continuar
-           </button>`
-        : `<div style="height:22px"></div>
-           <button onclick="cancelarFichaje()" style="width:100%;padding:16px;background:var(--gray-l);border:1.5px solid var(--gray-b);border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;color:var(--text)">
-             Cerrar
-           </button>`}
-    </div>`;
-  if(navigator.vibrate) navigator.vibrate(tipo==='repetido'?[80,60,80]:180);
-
-  // Tras fichar la entrada pasa sola a su pantalla de trabajo
-  if(esEntrada) setTimeout(()=>{ if(document.querySelector('[data-fichado-2="1"]')) _irALimpiar(worker.id); },5000);
-}
-
-// Tras fichar la entrada, pasar directamente a su pantalla de trabajo
-async function _irALimpiar(wid){
-  const w=S.workers.find(x=>x.id===wid);
-  if(!w) return;
-  await _entrarComoTrabajador(w);
-}
-
-function cancelarFichaje(){
-  fichajeWorker=null;
-  document.getElementById('worker-detail').style.display='none';
-  renderWorkers();
-}
-
-// ============ FICHAJES (Admin) ============
-// Cartel imprimible para el cuarto de taquillas: QR + hueco para la tarjeta NFC
-function etiquetaFichaje(){
-  const url=location.origin+location.pathname+'?fichar=1';
-  const qr=`https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(url)}&margin=8`;
-
-  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-  <title>Cartel de fichaje</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,Helvetica,sans-serif;background:#e9edf2;padding:20px;
-      display:flex;flex-direction:column;align-items:center;gap:16px}
-    .hint{max-width:400px;background:#fff;border-radius:10px;padding:12px 14px;
-      font-size:13px;color:#444;line-height:1.5;text-align:center}
-    .hint b{color:#1e3a5f}
-    .cartel{width:148mm;height:210mm;background:#fff;border:2px dashed #aab2bd;border-radius:6mm;
-      padding:12mm 10mm;display:flex;flex-direction:column;align-items:center;text-align:center}
-    .ies{font-size:3.4mm;font-weight:700;letter-spacing:.5mm;color:#8a94a3;text-transform:uppercase;margin-bottom:4mm}
-    .tit{background:#1e3a5f;color:#fff;font-size:9mm;font-weight:900;letter-spacing:1mm;
-      padding:4mm 14mm;border-radius:20mm;margin-bottom:6mm}
-    .sub{font-size:5mm;font-weight:700;color:#1e3a5f;margin-bottom:7mm;line-height:1.4}
-    .qr{width:72mm;height:72mm;display:block;margin-bottom:3mm}
-    .qrtxt{font-size:3.6mm;font-weight:800;color:#1e3a5f;margin-bottom:7mm}
-    .nfc{border:2px dashed #1e3a5f;border-radius:4mm;width:76mm;height:38mm;
-      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2mm;margin-bottom:6mm}
-    .nfc-t{font-size:4.6mm;font-weight:900;color:#1e3a5f}
-    .nfc-s{font-size:3.4mm;color:#66707d}
-    .pasos{text-align:left;font-size:3.9mm;color:#333;line-height:1.85;width:100%;padding:0 4mm}
-    .pasos b{color:#1e3a5f}
-    button{padding:12px 22px;font-size:15px;border:none;border-radius:10px;cursor:pointer;font-weight:700}
-    .p{background:#1e3a5f;color:#fff}.c{background:#d5dbe3;color:#333}
-    .barra{display:flex;gap:10px}
-    .nfcbox{max-width:400px;width:100%;background:#fff;border:1.5px solid #f0c46a;border-radius:12px;padding:14px;text-align:center}
-    .nfct{font-size:13px;font-weight:800;color:#b7791f;margin-bottom:4px}
-    .nfcs{font-size:12px;color:#555;margin-bottom:8px}
-    .nfcu{font-family:'Courier New',monospace;font-size:12px;color:#1e3a5f;background:#f7f9fc;
-      border:1px solid #dde3ec;border-radius:8px;padding:9px;word-break:break-all;margin-bottom:8px;user-select:all}
-    .cp{background:#b7791f;color:#fff}
-    @media print{@page{size:A4;margin:10mm} body{background:#fff;padding:0;display:block}
-      .hint,.barra,.nfcbox{display:none} .cartel{border-style:dashed;margin:0 auto}}
-  </style></head><body>
-    <div class="hint">🖨️ Imprime a <b>tamaño real (100%)</b>. Pega el cartel en el cuarto de taquillas y coloca la <b>tarjeta NFC</b> pegada en el recuadro de puntos.</div>
-    <div class="nfcbox">
-      <div class="nfct">📱 Dirección para grabar la tarjeta NFC</div>
-      <div class="nfcs">Grábala como tipo <b>URL / enlace</b>:</div>
-      <div class="nfcu" id="nfcurl">${url}</div>
-      <button class="cp" id="cpb" onclick="navigator.clipboard.writeText('${url}').then(()=>cpb.textContent='✓ Copiado').catch(()=>cpb.textContent='Selecciona el texto y cópialo')">📋 Copiar dirección</button>
-    </div>
-    <div class="barra">
-      <button class="p" onclick="window.print()">🖨️ Imprimir</button>
-      <button class="c" onclick="window.close()">✕ Cerrar</button>
-    </div>
-    <div class="cartel">
-      <div class="ies">IES Gregorio Prieto</div>
-      <div class="tit">FICHAR</div>
-      <div class="sub">Entrada y salida<br>del personal de limpieza</div>
-      <img class="qr" src="${qr}" alt="QR de fichaje">
-      <div class="qrtxt">📷 Escanea el QR</div>
-      <div class="nfc">
-        <div class="nfc-t">📡 o acerca el móvil aquí</div>
-        <div class="nfc-s">(pega aquí la tarjeta NFC)</div>
-      </div>
-      <div class="pasos">
-        <b>1.</b> Escanea el QR o acerca el móvil<br>
-        <b>2.</b> Toca tu nombre<br>
-        <b>3.</b> Escribe tu PIN<br>
-        <b>4.</b> Repite lo mismo al terminar
-      </div>
-    </div>
-  </body></html>`;
-
-  const w=window.open('','_blank');
-  if(!w){ toast('Permite las ventanas emergentes',true); return; }
-  w.document.write(html); w.document.close();
-}
-
-// Desvincula este móvil, para cuando alguien cambia de teléfono
-function liberarDispositivo(){
-  const wid=localStorage.getItem('ies_disp_trab');
-  const w=wid?S.workers.find(x=>x.id===wid):null;
-  const quien=w?w.name:'nadie';
-  if(!confirm(`Este móvil está vinculado a: ${quien}.\n\n¿Liberarlo para que pueda usarlo otra persona?`)) return;
-  localStorage.removeItem('ies_disp_trab');
-  localStorage.removeItem('ies_disp_id');   // borra también la huella del aparato
-  toast('✓ Móvil liberado');
-}
-
+// El fichaje se hace en el terminal de conserjería (llavero), no con el móvil.
 let fichajesMes=[];
 
 // ============ CALENDARIO DEL CURSO (config de festivos y cierres) ============
