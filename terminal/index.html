@@ -257,7 +257,7 @@ header .fecha{font-size:15px;opacity:.8;text-align:right;text-transform:capitali
     <h2>Acerque el llavero</h2>
     <p id="cap-para"></p>
     <div style="margin-top:20px;display:flex;gap:8px">
-      <input id="cap-manual" placeholder="o escriba el número a mano" style="flex:1;font-size:17px;padding:11px 14px;border-radius:12px;border:2px solid var(--line)">
+      <input id="cap-manual" placeholder="o escriba el número del llavero (solo cifras)" inputmode="numeric" style="flex:1;font-size:17px;padding:11px 14px;border-radius:12px;border:2px solid var(--line)">
       <button class="btn btn-p" onclick="capturaManual()">Usar</button>
     </div>
     <button class="btn btn-g" style="margin-top:14px;width:100%" onclick="cerrarCaptura()">Cancelar</button>
@@ -844,7 +844,11 @@ function pedirLlavero(destino, id){
   $('captura').classList.remove('hidden');
 }
 function cerrarCaptura(){ $('captura').classList.add('hidden'); capDestino = null; }
-function capturaManual(){ const v = $('cap-manual').value.trim().toUpperCase(); if(v.length >= 4) capturaRecibida(v); }
+function capturaManual(){
+  const v = $('cap-manual').value.trim().toUpperCase();
+  if(!/^[0-9A-F]{6,20}$/.test(v)){ toast('Escriba solo el NÚMERO del llavero (no un nombre). Lo normal es pasarlo por el lector.', true); return; }
+  capturaRecibida(v);
+}
 async function capturaRecibida(code){
   if(!capDestino) return;
   const dst = capDestino;
@@ -857,15 +861,15 @@ async function capturaRecibida(code){
   if(!r) return;
   pitido('ok'); cerrarCaptura(); toast('Llavero asignado a ' + dst.nombre + ' ✓');
   await cargarAdmin();
-  // Seguir con la siguiente persona que no tenga llavero
-  if(dst.destino === 'trabajador' && AD){
-    const sig = AD.trabajadores.find(t => !t.llavero && !t.baja);
-    if(sig) setTimeout(() => pedirLlavero('trabajador', sig.id), 900);
-  }
 }
 async function asignarSector(id, sel){
   const t = AD.trabajadores.find(x => x.id === id);
   const antes = t?.sector_id || '';
+  const otra = sel.value && AD.trabajadores.find(x => x.id !== id && x.sector_id === sel.value);
+  if(otra){
+    const sn = sel.options[sel.selectedIndex].text;
+    if(!confirm(`${sn} ya lo tiene ${otra.nombre}.\n\n¿Poner también a ${t.nombre} en ${sn}?\n(Si no, pulse Cancelar y cambie antes el sector de ${otra.nombre}.)`)){ sel.value = antes; return; }
+  }
   sel.disabled = true;
   const r = await admin('asignar_sector', { id, sector_id: sel.value || null });
   sel.disabled = false;
