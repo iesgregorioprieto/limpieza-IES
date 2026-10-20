@@ -35,7 +35,7 @@ header .reloj{font-family:'Barlow Condensed';font-weight:800;font-size:46px;line
 header .fecha{font-size:15px;opacity:.8;text-align:right;text-transform:capitalize}
 #banner-red{background:var(--amber);color:#fff;border-radius:10px;padding:8px 14px;font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
 
-.cuerpo{display:grid;grid-template-columns:1.25fr 1fr;gap:24px;padding:24px 28px;min-height:0}
+.cuerpo{display:grid;grid-template-columns:1fr;gap:24px;padding:24px 28px;min-height:0}
 .panel{background:var(--card);border-radius:22px;box-shadow:0 2px 10px rgba(15,74,138,.07);min-height:0;display:flex;flex-direction:column}
 .acerque{align-items:center;justify-content:center;text-align:center;padding:30px;position:relative;overflow:hidden}
 .onda{width:230px;height:230px;border-radius:50%;background:var(--blue-l);display:flex;align-items:center;justify-content:center;position:relative;margin-bottom:30px}
@@ -69,7 +69,8 @@ header .fecha{font-size:15px;opacity:.8;text-align:right;text-transform:capitali
 #btn-gestion{position:fixed;right:14px;bottom:12px;width:44px;height:44px;border-radius:50%;border:none;background:transparent;color:#94a3b8;font-size:24px;opacity:.6}
 #btn-gestion:hover{opacity:1;background:#fff}
 
-/* ---------- Fichaje: lista de personal ---------- */
+/* ---------- Fichaje ---------- */
+.acerque .privado{font-size:16px;margin-top:22px;color:var(--gray);display:flex;gap:6px;align-items:center;justify-content:center}
 .per{display:flex;align-items:center;gap:14px;padding:12px 10px;border-bottom:1px solid var(--line)}
 .per:last-child{border-bottom:none}
 .per .ico{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;background:var(--gray-l);color:var(--gray)}
@@ -197,17 +198,12 @@ header .fecha{font-size:15px;opacity:.8;text-align:right;text-transform:capitali
       <div class="onda"><i class="ti ti-nfc"></i></div>
       <h2>Acerque su llavero</h2>
       <p>para fichar la entrada o la salida</p>
+      <p class="privado"><i class="ti ti-lock"></i> Solo usted ve su fichaje, durante unos segundos</p>
       <div class="leyenda">
         <span><i class="ti ti-clock-hour-8"></i>Personal de limpieza</span>
       </div>
     </div>
 
-    <div class="der">
-      <div class="panel" style="flex:1">
-        <h3><i class="ti ti-users"></i>Limpieza hoy <span class="cnt" id="n-dentro">0</span></h3>
-        <div class="lista"><div id="lista-personal"></div></div>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -446,7 +442,7 @@ document.addEventListener('keydown', e => {
 //  ESTADO GENERAL
 // =====================================================================
 let TOKEN = LS.get('tc_token', null);
-let ESTADO = LS.get('tc_estado', { fuera: [], profesores: [], codigos_llaves: [], personal: [] });
+let ESTADO = LS.get('tc_estado', { fuera: [], profesores: [], codigos_llaves: [] }); delete ESTADO.personal;
 let COLA = LS.get('tc_cola', []);          // fichajes guardados sin conexión
 let ultimaLectura = { code: '', t: 0 };
 let ocupado = false;
@@ -639,7 +635,7 @@ async function cargarEstado(){
   if(r.red){ pintarBanner(true); return; }
   if(r.error){ console.warn(r.error); return; }
   if(!r.data?.ok){ if(r.data?.error === 'terminal') terminalNoAutorizado(); return; }
-  ESTADO = r.data; LS.set('tc_estado', ESTADO);
+  ESTADO = r.data; delete ESTADO.personal; LS.set('tc_estado', ESTADO);   // los fichajes de los demás no se guardan ni se muestran
   pintarBanner(false);
   pintarPrincipal();
   if(pk) pintarPicker();
@@ -660,15 +656,6 @@ function pintarPrincipal(){
       <div class="hora">${cuando}${horas >= 1 && !otroDia ? `<br>hace ${Math.floor(horas)} h` : ''}</div></div>`;
   }).join('') : '<div class="vacio"><i class="ti ti-circle-check" style="font-size:34px;color:var(--green);display:block;margin-bottom:6px"></i>Todas las llaves están en conserjería</div>';
 
-  // Fichaje del personal
-  const pers = ESTADO.personal || [];
-  const dentro = pers.filter(p => p.entrada && !p.salida).length;
-  $('n-dentro').textContent = dentro + ' dentro';
-  $('lista-personal').innerHTML = pers.length ? pers.map(p => {
-    if(p.salida) return `<div class="per fuera"><div class="ico"><i class="ti ti-logout"></i></div><div class="nom">${esc(p.nombre)}</div><div class="est">Salida ${fmtH(p.salida)}</div></div>`;
-    if(p.entrada) return `<div class="per dentro"><div class="ico"><i class="ti ti-login"></i></div><div class="nom">${esc(p.nombre)}</div><div class="est">Entrada ${fmtH(p.entrada)}</div></div>`;
-    return `<div class="per"><div class="ico"><i class="ti ti-clock"></i></div><div class="nom">${esc(p.nombre)}</div><div class="est">Sin fichar</div></div>`;
-  }).join('') : '<div class="vacio">Aún no hay llaveros asignados al personal</div>';
 }
 
 // ---------- Pantalla de llaves prestadas ----------
