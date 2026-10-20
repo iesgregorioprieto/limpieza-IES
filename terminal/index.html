@@ -128,6 +128,8 @@ header .fecha{font-size:15px;opacity:.8;text-align:right;text-transform:capitali
 .tabla td{padding:11px 10px;border-bottom:1px solid var(--line);font-size:17px;vertical-align:middle}
 .tabla td.acc{text-align:right;white-space:nowrap}
 .tabla td.acc .btn{margin-left:6px}
+.sel-sec{font-size:16px;padding:8px 10px;border-radius:10px;border:2px solid var(--line);background:#fff;min-width:170px;font-family:inherit;cursor:pointer}
+.sel-sec.vacio-sec{border-color:#f59e0b;background:#fffbeb}
 .tag{display:inline-flex;gap:5px;align-items:center;border-radius:8px;padding:4px 10px;font-weight:700;font-size:14px}
 .tag-ok{background:var(--green-l);color:var(--green)} .tag-no{background:var(--gray-l);color:var(--gray)} .tag-am{background:var(--amber-l);color:var(--amber)} .tag-rd{background:var(--red-l);color:var(--red)}
 .mono{font-family:ui-monospace,Consolas,monospace;font-size:14px;color:var(--gray)}
@@ -752,10 +754,15 @@ function pintarAdmin(){
 
   if(adminTab === 'personal'){
     const sin = AD.trabajadores.filter(t => !t.llavero).length;
-    c.innerHTML = `<div class="ayuda"><i class="ti ti-info-circle"></i> Pulse <b>Asignar llavero</b> y acerque el llavero al lector. El llavero queda ligado a esa persona; si se pierde, asigne uno nuevo y el anterior deja de valer.
+    c.innerHTML = `<div class="ayuda"><i class="ti ti-info-circle"></i> Elija el <b>sector</b> de cada persona en el desplegable (se guarda solo). Después pulse <b>Asignar llavero</b> y acerque el llavero al lector. El llavero queda ligado a esa persona; si se pierde, asigne uno nuevo y el anterior deja de valer.
       ${sin ? `<br><b>${sin}</b> persona${sin > 1 ? 's' : ''} sin llavero todavía.` : ''}</div>
-      <table class="tabla"><tr><th>Nombre</th><th>Llavero</th><th></th></tr>
-      ${AD.trabajadores.map(t => `<tr><td><b>${esc(t.nombre)}</b> ${t.baja ? '<span class="tag tag-am">De baja</span>' : ''}</td><td>${tagLl(t.llavero)}</td>
+      <table class="tabla"><tr><th>Nombre</th><th>Sector</th><th>Llavero</th><th></th></tr>
+      ${AD.trabajadores.map(t => `<tr><td><b>${esc(t.nombre)}</b> ${t.baja ? '<span class="tag tag-am">De baja</span>' : ''}</td>
+        <td><select class="sel-sec ${t.sector_id ? '' : 'vacio-sec'}" onchange="asignarSector('${t.id}', this)">
+          <option value="">— Sin sector —</option>
+          ${(AD.sectores || []).map(s => `<option value="${s.id}" ${s.id === t.sector_id ? 'selected' : ''}>${esc(s.nombre)}</option>`).join('')}
+        </select></td>
+        <td>${tagLl(t.llavero)}</td>
         <td class="acc"><button class="btn btn-p btn-sm" onclick="pedirLlavero('trabajador','${t.id}')"><i class="ti ti-nfc"></i>${t.llavero ? 'Cambiar' : 'Asignar'} llavero</button>
         ${t.llavero ? `<button class="btn btn-r btn-sm" onclick="quitarLlavero('trabajador','${t.id}')">Quitar</button>` : ''}</td></tr>`).join('')}
       </table>`;
@@ -854,6 +861,18 @@ async function capturaRecibida(code){
     const sig = AD.trabajadores.find(t => !t.llavero && !t.baja);
     if(sig) setTimeout(() => pedirLlavero('trabajador', sig.id), 900);
   }
+}
+async function asignarSector(id, sel){
+  const t = AD.trabajadores.find(x => x.id === id);
+  const antes = t?.sector_id || '';
+  sel.disabled = true;
+  const r = await admin('asignar_sector', { id, sector_id: sel.value || null });
+  sel.disabled = false;
+  if(!r){ sel.value = antes; return; }
+  if(t) t.sector_id = sel.value || null;
+  sel.classList.toggle('vacio-sec', !sel.value);
+  const s = (AD.sectores || []).find(x => x.id === sel.value);
+  toast(s ? `${t.nombre} → ${s.nombre} ✓` : `${t.nombre} queda sin sector`);
 }
 async function quitarLlavero(destino, id){
   if(!confirm('¿Quitar el llavero? Dejará de servir hasta que se asigne otro.')) return;

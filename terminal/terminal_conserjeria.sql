@@ -274,6 +274,32 @@ begin
 end $$;
 
 
+
+-- =====================================================================
+--  SECTOR FIJO (mismo criterio que la app de limpieza)
+--  Rotación pausada → periodo congelado; si no, el de hoy; si no, el primero.
+-- =====================================================================
+alter table limpieza_config add column if not exists rotacion_activa boolean not null default true;
+alter table limpieza_config add column if not exists rotacion_periodo_fijo integer;
+
+create or replace function _terminal_periodo()
+returns integer language plpgsql stable security definer set search_path = public as $$
+declare v_act boolean; v_fijo int; v_p int;
+begin
+  select rotacion_activa, rotacion_periodo_fijo into v_act, v_fijo from limpieza_config limit 1;
+  if v_act is false and v_fijo is not null
+     and exists (select 1 from limpieza_rotaciones where periodo_num = v_fijo) then
+    return v_fijo;
+  end if;
+  select periodo_num into v_p from limpieza_rotaciones
+   where current_date between periodo_inicio and periodo_fin order by periodo_num limit 1;
+  if v_p is null then
+    select min(periodo_num) into v_p from limpieza_rotaciones;
+  end if;
+  return v_p;
+end $$;
+revoke all on function _terminal_periodo() from public, anon, authenticated;
+
 -- =====================================================================
 --  GESTIÓN (requiere terminal autorizado + PIN de admin)
 -- =====================================================================
@@ -281,6 +307,7 @@ create or replace function terminal_admin(p_token text, p_pin text, p_accion tex
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   v_ll text; v_n int := 0; v_nom text; v_id uuid;
+  v_per int; v_ini date; v_fin date; v_sec uuid;
 begin
   if not _terminal_ok(p_token) then return jsonb_build_object('ok', false, 'error', 'terminal'); end if;
   if not _terminal_pin_ok(p_pin) then return jsonb_build_object('ok', false, 'error', 'pin'); end if;
@@ -291,9 +318,14 @@ begin
   -- Todos los datos de gestión
   if p_accion = 'datos' then
     return jsonb_build_object('ok', true,
-      'trabajadores', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'nombre', nombre,
-                         'llavero', llavero, 'baja', coalesce(baja,false)) order by nombre)
-                        from limpieza_trabajadores where activo is not false), '[]'),
+      'trabajadores', coalesce((select jsonb_agg(jsonb_build_object('id', t.id, 'nombre', t.nombre,
+                         'llavero', t.llavero, 'baja', coalesce(t.baja,false),
+                         'sector_id', (select r.sector_id from limpieza_rotaciones r
+                                        where r.trabajador_id = t.id and r.periodo_num = _terminal_periodo()
+                                        limit 1)) order by t.nombre)
+                        from limpieza_trabajadores t where t.activo is not false), '[]'),
+      'sectores', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'nombre', nombre) order by orden, nombre)
+                        from limpieza_sectores where activo is not false), '[]'),
       'profesores', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'nombre', nombre, 'activo', activo)
                          order by activo desc, nombre) from limpieza_profesores), '[]'),
       'llaves', coalesce((select jsonb_agg(jsonb_build_object('id', ll.id, 'nombre', ll.nombre,
@@ -334,6 +366,31 @@ begin
       update limpieza_trabajadores set llavero = null where id = v_id;
     else
       update limpieza_llaves set llavero = null where id = v_id;
+    end if;
+    return jsonb_build_object('ok', true);
+  end if;
+
+  -- Sector fijo de un trabajador (null = sin sector)
+  if p_accion = 'asignar_sector' then
+    v_id  := (p_datos->>'id')::uuid;
+    v_sec := nullif(p_datos->>'sector_id','')::uuid;
+    if v_id is null then return jsonb_build_object('ok', false, 'error', 'datos'); end if;
+    v_per := _terminal_periodo();
+    if v_per is null then
+      -- Aún no hay reparto: se crea un periodo único para todo el curso y se deja la rotación pausada
+      select curso_inicio, curso_fin into v_ini, v_fin from limpieza_config limit 1;
+      v_ini := coalesce(v_ini, current_date);
+      v_fin := coalesce(v_fin, (current_date + interval '1 year')::date);
+      v_per := 1;
+      update limpieza_config set rotacion_activa = false, rotacion_periodo_fijo = 1 where true;
+    else
+      select periodo_inicio, periodo_fin into v_ini, v_fin
+        from limpieza_rotaciones where periodo_num = v_per limit 1;
+    end if;
+    delete from limpieza_rotaciones where trabajador_id = v_id and periodo_num = v_per;
+    if v_sec is not null then
+      insert into limpieza_rotaciones(trabajador_id, sector_id, periodo_num, periodo_inicio, periodo_fin)
+      values (v_id, v_sec, v_per, v_ini, v_fin);
     end if;
     return jsonb_build_object('ok', true);
   end if;
