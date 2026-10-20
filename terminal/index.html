@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <style>
 :root{
+  --llave:#6d28d9; --llave-l:#ede9fe;
   --navy:#0f4a8a; --blue:#1a6dbf; --blue-l:#e7f0fb;
   --green:#16a34a; --green-l:#dcfce7;
   --amber:#d97706; --amber-l:#fef3c7;
@@ -68,6 +69,30 @@ header .fecha{font-size:15px;opacity:.8;text-align:right;text-transform:capitali
 #btn-gestion{position:fixed;right:14px;bottom:12px;width:44px;height:44px;border-radius:50%;border:none;background:transparent;color:#94a3b8;font-size:24px;opacity:.6}
 #btn-gestion:hover{opacity:1;background:#fff}
 
+/* ---------- Fichaje: lista de personal ---------- */
+.per{display:flex;align-items:center;gap:14px;padding:12px 10px;border-bottom:1px solid var(--line)}
+.per:last-child{border-bottom:none}
+.per .ico{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;background:var(--gray-l);color:var(--gray)}
+.per .nom{font-family:'Barlow Condensed';font-weight:800;font-size:24px;flex:1}
+.per .est{font-weight:700;font-size:16px;color:var(--gray);text-align:right;white-space:nowrap}
+.per.dentro .ico{background:var(--green-l);color:var(--green)} .per.dentro .est{color:var(--green)}
+.per.fuera .ico{background:var(--blue-l);color:var(--blue)} .per.fuera .est{color:var(--blue)}
+
+/* ---------- Llaves (pantalla aparte) ---------- */
+#btn-llaves{border:2px solid #fff;background:#fff;margin-right:8px;color:var(--llave);border-radius:999px;padding:8px 16px;font-size:16px;font-weight:700;display:flex;gap:8px;align-items:center;opacity:.85}
+#btn-llaves:hover{opacity:1;background:var(--llave-l)}
+#btn-llaves span{background:var(--llave);color:#fff;border-radius:999px;padding:0 9px;font-size:14px}
+#btn-llaves.alerta{border-color:var(--red);color:var(--red)} #btn-llaves.alerta span{background:var(--red)}
+#llaves{position:fixed;inset:0;background:var(--bg);z-index:38;display:flex;flex-direction:column}
+.ll-head{background:var(--llave);color:#fff;padding:18px 28px;display:flex;align-items:center;gap:18px}
+.ll-head .l1{font-size:18px;font-weight:700;opacity:.85}
+.ll-head .l2{font-family:'Barlow Condensed';font-weight:900;font-size:44px;line-height:1}
+.ll-head .esp{flex:1}
+.btn-volver{background:#fff;color:var(--llave);border:none;border-radius:14px;padding:16px 26px;font-size:20px;font-weight:800;display:flex;gap:8px;align-items:center}
+.ll-ayuda{margin:18px 28px 0;background:var(--llave-l);color:#4c1d95;border-radius:14px;padding:12px 16px;font-size:17px;font-weight:600}
+.ll-cuerpo{flex:1;overflow:auto;margin:14px 28px 28px;background:#fff;border-radius:18px;padding:10px 14px}
+.ll-cuerpo .fila .ico{background:var(--llave-l);color:var(--llave)}
+
 /* ---------- Resultado a pantalla completa ---------- */
 #res{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;z-index:50;padding:40px}
 #res .circ{width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;margin-bottom:26px;animation:pop .35s ease}
@@ -81,7 +106,7 @@ header .fecha{font-size:15px;opacity:.8;text-align:right;text-transform:capitali
 
 /* ---------- Elegir profesor ---------- */
 #picker{position:fixed;inset:0;background:var(--bg);z-index:40;display:flex;flex-direction:column}
-.pk-head{background:var(--amber);color:#fff;padding:18px 28px;display:flex;align-items:center;gap:18px}
+.pk-head{background:var(--llave);color:#fff;padding:18px 28px;display:flex;align-items:center;gap:18px}
 .pk-head i{font-size:48px}
 .pk-head .l1{font-size:18px;font-weight:700;opacity:.9}
 .pk-head .l2{font-family:'Barlow Condensed';font-weight:900;font-size:44px;line-height:1}
@@ -98,7 +123,7 @@ header .fecha{font-size:15px;opacity:.8;text-align:right;text-transform:capitali
 .pk-btn:hover{border-color:var(--blue);background:var(--blue-l)}
 .pk-btn.frec{border-color:var(--amber);background:var(--amber-l)}
 .pk-btn i{color:var(--blue);font-size:22px}
-.pk-tiempo{height:6px;background:var(--amber);transition:width 1s linear}
+.pk-tiempo{height:6px;background:var(--llave);transition:width 1s linear}
 
 /* ---------- Ventanas (PIN, captura, gestión) ---------- */
 .velo{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
@@ -156,9 +181,10 @@ header .fecha{font-size:15px;opacity:.8;text-align:right;text-transform:capitali
     <i class="ti ti-building-community" style="font-size:40px"></i>
     <div>
       <div class="tit">IES GREGORIO PRIETO · CONSERJERÍA</div>
-      <div class="sub">Fichaje del personal de limpieza y préstamo de llaves</div>
+      <div class="sub">Fichaje del personal de limpieza</div>
     </div>
     <div class="esp"></div>
+    <button id="btn-llaves" onclick="abrirLlaves()"><i class="ti ti-key"></i>Llaves prestadas <span id="n-fuera">0</span></button>
     <div id="banner-red" class="hidden"><i class="ti ti-wifi-off"></i><span id="banner-txt">Sin conexión</span></div>
     <div>
       <div class="reloj" id="reloj">--:--</div>
@@ -169,26 +195,37 @@ header .fecha{font-size:15px;opacity:.8;text-align:right;text-transform:capitali
   <div class="cuerpo">
     <div class="panel acerque">
       <div class="onda"><i class="ti ti-nfc"></i></div>
-      <h2>Acerque el llavero</h2>
-      <p>al lector que hay sobre el mostrador</p>
+      <h2>Acerque su llavero</h2>
+      <p>para fichar la entrada o la salida</p>
       <div class="leyenda">
-        <span><i class="ti ti-clock-hour-8"></i>Personal de limpieza: entrada y salida</span>
-        <span><i class="ti ti-key"></i>Llaves: préstamo y devolución</span>
+        <span><i class="ti ti-clock-hour-8"></i>Personal de limpieza</span>
       </div>
     </div>
 
     <div class="der">
-      <div class="panel" style="flex:1.6">
-        <h3><i class="ti ti-key"></i>Llaves prestadas <span class="cnt" id="n-fuera">0</span></h3>
-        <div class="lista" id="lista-fuera"></div>
-      </div>
       <div class="panel" style="flex:1">
         <h3><i class="ti ti-users"></i>Limpieza hoy <span class="cnt" id="n-dentro">0</span></h3>
-        <div class="lista" style="padding:0"><div class="chips" id="chips-personal"></div></div>
+        <div class="lista"><div id="lista-personal"></div></div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- ===================== LLAVES PRESTADAS (consulta) ===================== -->
+<div id="llaves" class="hidden">
+  <div class="ll-head">
+    <i class="ti ti-key" style="font-size:44px"></i>
+    <div>
+      <div class="l1">Préstamo de llaves</div>
+      <div class="l2">Llaves prestadas</div>
+    </div>
+    <div class="esp"></div>
+    <button class="btn-volver" onclick="cerrarLlaves()"><i class="ti ti-arrow-back-up"></i>Volver al fichaje</button>
+  </div>
+  <div class="ll-ayuda"><i class="ti ti-info-circle"></i> Para <b>prestar</b> una llave, pase su llavero por el lector y elija quién se la lleva. Para <b>devolverla</b>, basta con pasarla otra vez.</div>
+  <div class="ll-cuerpo" id="lista-fuera"></div>
+</div>
+
 <button id="btn-gestion" title="Gestión" onclick="abrirPin('gestion')"><i class="ti ti-settings"></i></button>
 
 <!-- ===================== RESULTADO ===================== -->
@@ -434,6 +471,7 @@ async function onLlavero(code){
   if(ocupado) return;
 
   if(!$('picker').classList.contains('hidden')) cerrarPicker(true);
+  cerrarLlaves();
   ocupado = true;
   try{ await procesar(code); } finally { ocupado = false; }
 }
@@ -475,7 +513,7 @@ async function procesar(code){
     }
   }else if(d.tipo === 'llave'){
     if(d.accion === 'devuelta'){
-      mostrarRes({ color: 'var(--green)', ico: 'ti-key', tit: 'LLAVE DEVUELTA', nom: d.llave,
+      mostrarRes({ color: 'var(--llave)', ico: 'ti-key', tit: 'LLAVE DEVUELTA', nom: d.llave,
         sub: `La tenía ${esc(d.profesor)} desde las ${fmtH(d.desde)}${mismoDia(d.desde) ? '' : ' del ' + fmtF(d.desde)}`, tipo: 'ok' });
     }else if(d.accion === 'elegir'){
       pitido('aviso'); abrirPicker(d);
@@ -583,7 +621,7 @@ async function prestarA(profId, nombreLibre){
     else toast('No se pudo registrar el préstamo', true);
     return;
   }
-  mostrarRes({ color: 'var(--navy)', ico: 'ti-key', tit: 'LLAVE PRESTADA', nom: d.llave, gran: fmtH(d.hora),
+  mostrarRes({ color: 'var(--llave)', ico: 'ti-key', tit: 'LLAVE PRESTADA', nom: d.llave, gran: fmtH(d.hora),
     sub: 'Se la lleva <b>' + esc(d.profesor) + '</b>', tipo: 'ok' });
   cargarEstado();
 }
@@ -608,8 +646,10 @@ async function cargarEstado(){
 }
 
 function pintarPrincipal(){
+  // Llaves (solo en su pantalla y en el botón)
   const fuera = ESTADO.fuera || [];
   $('n-fuera').textContent = fuera.length;
+  $('btn-llaves').classList.toggle('alerta', fuera.some(f => !mismoDia(f.desde)));
   $('lista-fuera').innerHTML = fuera.length ? fuera.map(f => {
     const horas = (Date.now() - new Date(f.desde)) / 3600000;
     const otroDia = !mismoDia(f.desde);
@@ -620,15 +660,24 @@ function pintarPrincipal(){
       <div class="hora">${cuando}${horas >= 1 && !otroDia ? `<br>hace ${Math.floor(horas)} h` : ''}</div></div>`;
   }).join('') : '<div class="vacio"><i class="ti ti-circle-check" style="font-size:34px;color:var(--green);display:block;margin-bottom:6px"></i>Todas las llaves están en conserjería</div>';
 
+  // Fichaje del personal
   const pers = ESTADO.personal || [];
   const dentro = pers.filter(p => p.entrada && !p.salida).length;
-  $('n-dentro').textContent = dentro + ' / ' + pers.length;
-  $('chips-personal').innerHTML = pers.length ? pers.map(p => {
-    if(p.salida) return `<span class="chip fuera"><i class="ti ti-logout"></i>${esc(primerNombre(p.nombre))} ${fmtH(p.salida)}</span>`;
-    if(p.entrada) return `<span class="chip dentro"><i class="ti ti-login"></i>${esc(primerNombre(p.nombre))} ${fmtH(p.entrada)}</span>`;
-    return `<span class="chip"><i class="ti ti-clock"></i>${esc(primerNombre(p.nombre))}</span>`;
-  }).join('') : '<div class="vacio" style="padding:8px 0">Aún no hay llaveros asignados al personal</div>';
+  $('n-dentro').textContent = dentro + ' dentro';
+  $('lista-personal').innerHTML = pers.length ? pers.map(p => {
+    if(p.salida) return `<div class="per fuera"><div class="ico"><i class="ti ti-logout"></i></div><div class="nom">${esc(p.nombre)}</div><div class="est">Salida ${fmtH(p.salida)}</div></div>`;
+    if(p.entrada) return `<div class="per dentro"><div class="ico"><i class="ti ti-login"></i></div><div class="nom">${esc(p.nombre)}</div><div class="est">Entrada ${fmtH(p.entrada)}</div></div>`;
+    return `<div class="per"><div class="ico"><i class="ti ti-clock"></i></div><div class="nom">${esc(p.nombre)}</div><div class="est">Sin fichar</div></div>`;
+  }).join('') : '<div class="vacio">Aún no hay llaveros asignados al personal</div>';
 }
+
+// ---------- Pantalla de llaves prestadas ----------
+let llavesT = null;
+function abrirLlaves(){
+  $('llaves').classList.remove('hidden');
+  clearTimeout(llavesT); llavesT = setTimeout(cerrarLlaves, 60000);   // vuelve sola al fichaje
+}
+function cerrarLlaves(){ $('llaves').classList.add('hidden'); clearTimeout(llavesT); }
 
 function pintarBanner(sinRed){
   if(typeof sinRed === 'boolean') pintarBanner.sinRed = sinRed;
