@@ -3466,6 +3466,7 @@ function renderAdmSectors(){
           <input class="ai" value="${d.name}" onchange="updDepName('${s.id}','${d.id}',this.value)">
           <button class="a-del" style="background:var(--blue-l);color:var(--blue-m)" title="Ver QR" onclick="openQR('${d.id}','${s.name.replace(/'/g,'')}','${d.name.replace(/'/g,'')}')"><i class="ti ti-qrcode"></i></button>
           <button class="a-del" style="background:var(--amber-l);color:var(--amber)" title="Copiar dirección NFC" onclick="copiarNFC('${d.id}')"><i class="ti ti-wifi"></i></button>
+          <button class="a-del" style="background:#ede9fe;color:#6d28d9" title="Cambiar de sector (el QR y el NFC no cambian)" onclick="abrirMoverDep('${s.id}','${d.id}')"><i class="ti ti-arrows-exchange"></i></button>
           <button class="a-del" onclick="rmDep('${s.id}','${d.id}')"><i class="ti ti-trash"></i></button>
         </div>`).join('')}
       <button class="a-add" style="font-size:12px;padding:7px;margin-top:4px" onclick="addDep('${s.id}')">
@@ -3684,6 +3685,63 @@ async function rmDep(sid,did){
   if(error){ console.error(error); toast('No se pudo eliminar la estancia',true); return; }
   const s=S.sectors.find(x=>x.id===sid); if(s) s.deps=s.deps.filter(x=>x.id!==did);
   renderAdmSectors(); toast('Dependencia eliminada ✓');
+}
+
+// ============ MOVER DEPENDENCIA DE SECTOR ============
+// Solo cambia sector_id. El QR (IES_DEP_<id>) y la URL NFC (?dep=<id>) dependen
+// únicamente del id de la dependencia, así que las etiquetas físicas siguen valiendo.
+// El historial (limpiezas e incidencias pasadas) se conserva tal cual.
+function abrirMoverDep(sid,did){
+  const s=S.sectors.find(x=>x.id===sid); if(!s)return;
+  const d=s.deps.find(x=>x.id===did); if(!d)return;
+  const otros=S.sectors.filter(x=>x.id!==sid);
+  if(!otros.length){ toast('No hay otro sector al que moverla',true); return; }
+  cerrarMoverDep();
+  const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const ov=document.createElement('div');
+  ov.id='mover-dep-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  ov.onclick=e=>{ if(e.target===ov) cerrarMoverDep(); };
+  ov.innerHTML=`<div style="background:#fff;width:100%;max-width:520px;max-height:85vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px 16px 22px">
+    <div style="font-size:12px;font-weight:800;color:var(--gray);text-transform:uppercase;letter-spacing:.4px">Cambiar de sector</div>
+    <div style="font-size:19px;font-weight:800;color:var(--blue-m);margin:4px 0 2px">${esc(d.name)}</div>
+    <div style="font-size:13px;color:var(--gray);margin-bottom:12px">Ahora en <b>${esc(s.name)}</b> (grupo ${esc(s.group)})</div>
+    <div style="background:var(--green-l);color:var(--green);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;margin-bottom:14px">
+      <i class="ti ti-shield-check"></i> El QR y la etiqueta NFC <b>no cambian</b>. No hay que reimprimir ni regrabar nada.
+    </div>
+    <div style="font-size:12px;font-weight:800;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Mover a…</div>
+    ${otros.map(o=>`<button onclick="moverDep('${sid}','${did}','${o.id}')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:13px 12px;margin-bottom:8px;border:1.5px solid var(--gray-b);border-radius:12px;background:#fff;font-size:15px;font-weight:700;color:var(--text);cursor:pointer">
+      <i class="ti ${SEC_ICONS[o.ii%SEC_ICONS.length]}" style="font-size:22px;color:var(--blue-m)"></i>
+      <span style="flex:1">${esc(o.name)}</span>
+      <span style="font-size:12px;font-weight:700;color:var(--gray)">Grupo ${esc(o.group)} · ${(o.deps||[]).length} dep.</span>
+    </button>`).join('')}
+    <button onclick="cerrarMoverDep()" style="width:100%;padding:12px;margin-top:4px;border:none;border-radius:12px;background:var(--gray-l);font-size:15px;font-weight:700;color:var(--text);cursor:pointer">Cancelar</button>
+  </div>`;
+  document.body.appendChild(ov);
+}
+
+function cerrarMoverDep(){
+  const ov=document.getElementById('mover-dep-ov'); if(ov) ov.remove();
+}
+
+async function moverDep(sidOrigen,did,sidDestino){
+  const sO=S.sectors.find(x=>x.id===sidOrigen);
+  const sD=S.sectors.find(x=>x.id===sidDestino);
+  if(!sO||!sD) return;
+  const d=sO.deps.find(x=>x.id===did); if(!d) return;
+  if(!confirm(`¿Mover "${d.name}" de ${sO.name} a ${sD.name}?\n\nEl QR y el NFC siguen siendo los mismos.`)) return;
+  const {data,error}=await sb.from('limpieza_dependencias').update({sector_id:sidDestino}).eq('id',did).select('id');
+  if(error||!data||!data.length){
+    console.error(error);
+    toast('No se pudo cambiar de sector. Revisa los permisos en Supabase.',true);
+    return;
+  }
+  sO.deps=sO.deps.filter(x=>x.id!==did);
+  sD.deps=sD.deps||[]; sD.deps.push(d);
+  cerrarMoverDep();
+  renderAdmSectors();
+  if(typeof renderPanel==='function') renderPanel();
+  toast(`"${d.name}" movida a ${sD.name} ✓`);
 }
 
 // ============ NFC ============
