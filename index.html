@@ -2464,7 +2464,10 @@ function _depPermitida(did, sec){
   if(miSec && miSec.id===sec.id) return true;
 
   // ¿Es el sector de un compañero de baja? (cobertura permitida)
-  const cubreBaja=S.workers.some(w=>w.baja && w.id!==selW.id && getSectorForWorker(w)?.id===sec.id);
+  // Solo si ese compañero NO tiene sustituto: si lo tiene, el sector es del sustituto.
+  const cubreBaja=S.workers.some(w=>w.baja && w.id!==selW.id
+    && !S.workers.some(x=>x.essustituto && x.sustituye_a===w.id && !x.baja)
+    && getSectorForWorker(w)?.id===sec.id);
   if(cubreBaja) return true;
 
   // No permitido — mostrar aviso claro en el escáner
@@ -3390,7 +3393,7 @@ function mostrarModalReincorporar(trabajador, sustituto){
         <button onclick="reincorporarYMandarSust('${trabajador.id}','${sustituto.id}')"
           style="padding:14px;background:var(--blue-l);color:var(--blue-m);border:2px solid var(--blue-m);border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;text-align:left">
           <i class="ti ti-users"></i> Reincorporar a ${trabajador.name.split(' ')[0]} y <strong>mantener al sustituto</strong>
-          <div style="font-size:12px;font-weight:600;margin-top:3px;opacity:.75">El sustituto se queda en el equipo con su propio sector</div>
+          <div style="font-size:12px;font-weight:600;margin-top:3px;opacity:.75">El sustituto se queda en el equipo; luego le asignas otro sector en Plantilla</div>
         </button>
         <button onclick="cerrarModalReinc()"
           style="padding:12px;background:var(--gray-l);border:1.5px solid var(--gray-b);border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;color:var(--gray)">
@@ -3458,13 +3461,18 @@ async function reincorporarYMandarSust(wid, sustId){
   const w=S.workers.find(x=>x.id===wid);
   const sust=S.workers.find(x=>x.id===sustId);
   // Quitar vínculo de sustitución
-  if(sust){ sust.essustituto=false; sust.sustituye_a=null; }
-  const {error:eSust}=await sb.from('limpieza_trabajadores').update({es_sustituto:false,sustituye_a:null}).eq('id',sustId);
+  // El sector vuelve al titular: el sustituto queda sin sector hasta que se le asigne otro
+  const cambiosSust={es_sustituto:false,sustituye_a:null};
+  if(S.sectorFijoOk) cambiosSust.sector_id=null;
+  const {error:eSust}=await sb.from('limpieza_trabajadores').update(cambiosSust).eq('id',sustId);
   if(eSust){ console.error(eSust); toast('No se pudo actualizar el sustituto',true); return; }
+  if(sust){ sust.essustituto=false; sust.sustituye_a=null; if(S.sectorFijoOk) sust.sid=null; }
   // Reincorporar trabajador original
   if(w) await _reincorporarDirecto(w);
   else { renderAdmWorkers(); renderWorkers(); }
-  toast(`✓ ${w?.name.split(' ')[0]||''} reincorporado · ${sust?.name.split(' ')[0]||'Sustituto'} se mantiene`);
+  toast(S.sectorFijoOk
+    ? `✓ ${w?.name.split(' ')[0]||''} recupera su sector · Asigna otro a ${sust?.name.split(' ')[0]||'el sustituto'} en Plantilla`
+    : `✓ ${w?.name.split(' ')[0]||''} reincorporado · ${sust?.name.split(' ')[0]||'Sustituto'} se mantiene`, !!S.sectorFijoOk);
 }
 
 async function resetPinTrabajador(id){
