@@ -1040,6 +1040,17 @@ async function initApp(){
       }))
     }));
 
+    // Sector fijo de cada trabajador (asignado por el admin en Plantilla).
+    // Consulta aparte: si aún no se ha ejecutado sector_fijo_trabajador.sql, no rompe nada.
+    S.sectorFijoOk=false;
+    try{
+      const {data:wsec,error:eWs}=await sb.from('limpieza_trabajadores').select('id,sector_id').eq('activo',true);
+      if(!eWs && wsec){
+        S.sectorFijoOk=true;
+        wsec.forEach(r=>{ const w=S.workers.find(x=>x.id===r.id); if(w) w.sid=r.sector_id||null; });
+      }
+    }catch(_){}
+
     // Cargar config
     const {data:cfg} = await sb.from('limpieza_config').select('id,curso_inicio,curso_fin').maybeSingle();
     if(cfg){ S.cursoIni=cfg.curso_inicio; S.cursoFin=cfg.curso_fin; }
@@ -1494,7 +1505,13 @@ function getCambioSectorProximo(w){
 }
 
 function getSectorForWorker(w){
-  const p=getCurrentPeriod(); if(!p||!w)return null;
+  if(!w) return null;
+  // Sector fijo asignado en Plantilla: tiene prioridad sobre la rotación.
+  if(S.sectorFijoOk){
+    if(w.sid) return S.sectors.find(s=>s.id===w.sid)||null;
+    if(!S.rotacionActiva) return null; // rotación pausada y sin sector asignado → no puede escanear
+  }
+  const p=getCurrentPeriod(); if(!p)return null;
   const a=p.assignments.find(a=>a.wid===w.id); if(!a||!a.sid)return null;
   return S.sectors.find(s=>s.id===a.sid)||null;
 }
@@ -2447,9 +2464,8 @@ function _depPermitida(did, sec){
   if(miSec && miSec.id===sec.id) return true;
 
   // ¿Es el sector de un compañero de baja? (cobertura permitida)
-  const compBaja=S.workers.find(w=>w.baja && w.id!==selW.id);
-  const secBaja=compBaja?getSectorForWorker(compBaja):null;
-  if(secBaja && secBaja.id===sec.id) return true;
+  const cubreBaja=S.workers.some(w=>w.baja && w.id!==selW.id && getSectorForWorker(w)?.id===sec.id);
+  if(cubreBaja) return true;
 
   // No permitido — mostrar aviso claro en el escáner
   stopQRCam();
@@ -2466,7 +2482,7 @@ function _depPermitida(did, sec){
         <div style="font-size:15px;font-weight:900;color:#fff;margin-bottom:4px">⛔ Sector incorrecto</div>
         <div style="font-size:13px;color:rgba(255,255,255,.9);line-height:1.4">
           Esa estancia es del <strong>${secNombre}</strong>.<br>
-          Tu sector es: <strong>${miSecNombre}</strong>.
+          ${miSec?`Tu sector es: <strong>${miSecNombre}</strong>.`:`Aún <strong>no tienes sector asignado</strong>. Avisa a Secretaría.`}
         </div>
       </div>`;
     setTimeout(()=>{ if(alertBox) alertBox.innerHTML=''; startQRCam(); },2500);
@@ -3023,8 +3039,42 @@ function _renderWorkerCard(w){
       }
       <button class="a-del" onclick="removeWorker('${w.id}')" title="Eliminar definitivamente"><i class="ti ti-trash"></i></button>
     </div>
+    ${S.sectorFijoOk?(()=>{
+      const sinSec=!w.sid;
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:800;color:${sinSec?'var(--red)':'var(--blue-m)'};white-space:nowrap"><i class="ti ti-map-pin"></i> Sector</span>
+        <select class="asel" style="flex:1;font-weight:700;${sinSec?'border-color:var(--red);color:var(--red)':''}" onchange="updWorkerSector('${w.id}',this.value)">
+          <option value="" ${sinSec?'selected':''}>— Sin sector (no puede escanear) —</option>
+          ${S.sectors.map(sc=>`<option value="${sc.id}" ${w.sid===sc.id?'selected':''}>${sc.name} · Grupo ${sc.group}</option>`).join('')}
+        </select>
+      </div>`;})():''}
     ${!esBaja?`<div style="font-size:11px;color:var(--gray);font-style:italic">El propio trabajador elige su color desde sus ajustes.</div>`:''}
   </div>`;
+}
+
+// Asigna el sector fijo del trabajador. Solo podrá escanear QR/NFC de ese sector
+// (más los de un compañero de baja) hasta que se le cambie.
+async function updWorkerSector(id,val){
+  const w=S.workers.find(x=>x.id===id); if(!w) return;
+  const nuevo=val||null;
+  const {data,error}=await sb.from('limpieza_trabajadores').update({sector_id:nuevo}).eq('id',id).select('id');
+  if(error||!data||!data.length){
+    console.error(error);
+    toast('No se pudo guardar el sector. ¿Ejecutaste sector_fijo_trabajador.sql?',true);
+    renderAdmWorkers(); return;
+  }
+  w.sid=nuevo;
+  renderAdmWorkers(); renderWorkers();
+  const sc=S.sectors.find(x=>x.id===nuevo);
+  toast(sc?`✓ ${w.name.split(' ')[0]} → ${sc.name}`:`${w.name.split(' ')[0]} queda sin sector`);
+}
+
+// Copia el sector fijo del trabajador de baja al sustituto (si existe la columna)
+async function _copiarSectorFijo(sustId, secId){
+  if(!S.sectorFijoOk || !secId) return;
+  const {error}=await sb.from('limpieza_trabajadores').update({sector_id:secId}).eq('id',sustId);
+  if(error){ console.error(error); toast('Sustituto asignado, pero sin sector. Asígnaselo en Plantilla.',true); return; }
+  const w=S.workers.find(x=>x.id===sustId); if(w) w.sid=secId;
 }
 
 async function addWorker(){
@@ -3215,6 +3265,7 @@ async function asignarSustitutoExistente(bajadId, sustId){
 
   // Darle también el sector del trabajador de baja en el periodo actual
   const secBaja=getSectorForWorker(bajado);
+  await _copiarSectorFijo(sustId, secBaja?.id);
   const periodo=getCurrentPeriod();
   if(secBaja && periodo){
     try{
@@ -3279,6 +3330,7 @@ async function crearSustituto(bajadId){
 
   // Asignar el mismo sector que el trabajador de baja en la rotación actual
   const bajadSec=getSectorForWorker(bajadWorker);
+  await _copiarSectorFijo(data.id, bajadSec?.id);
   if(bajadSec&&S.rotation){
     const periodo=getCurrentPeriod();
     if(periodo){
@@ -3650,7 +3702,13 @@ async function removeSector(id){
   const {error}=await sb.from('limpieza_sectores').update({activo:false}).eq('id',id);
   if(error){ console.error(error); toast('No se pudo eliminar el sector',true); return; }
   S.sectors=S.sectors.filter(x=>x.id!==id);
-  renderAdmSectors(); renderPanel(); toast('Sector eliminado ✓');
+  const afectados=S.workers.filter(w=>w.sid===id);
+  if(afectados.length){
+    await sb.from('limpieza_trabajadores').update({sector_id:null}).eq('sector_id',id);
+    afectados.forEach(w=>w.sid=null);
+    toast(`Sector eliminado. ${afectados.length} trabajador(es) sin sector: asígnalo en Plantilla`,true);
+  } else toast('Sector eliminado ✓');
+  renderAdmSectors(); renderPanel();
 }
 
 async function addDep(sid){
@@ -4065,6 +4123,15 @@ async function toggleRotacion(){
 function renderAdmRot(){
   renderRotSwitch();
   const list=document.getElementById('adm-rot');
+  // Rotación pausada: el sector de cada trabajador se asigna en Personal › Plantilla
+  if(!S.rotacionActiva && S.sectorFijoOk){
+    list.innerHTML=`<div style="background:var(--blue-l);border:1.5px solid var(--blue-m);border-radius:12px;padding:14px;font-size:14px;color:var(--blue-m);line-height:1.45">
+      <div style="font-weight:800;margin-bottom:4px"><i class="ti ti-player-pause"></i> Rotación pausada</div>
+      Cada trabajador tiene un <b>sector fijo</b> y solo puede escanear las estancias de ese sector (y las de un compañero de baja).<br>
+      Para asignarlo o cambiarlo: <b>Personal › Plantilla</b>, desplegable «Sector» de cada trabajador.
+    </div>`;
+    return;
+  }
   if(!S.rotation||!S.rotation.length){
     list.innerHTML='<div style="text-align:center;padding:20px;color:var(--gray)">Sin rotación. Pulsa el botón para generar.</div>';
     return;
